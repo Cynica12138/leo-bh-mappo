@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Exact simulation and algorithm parameters matching the TCCN paper (Table I & Table II)."""
+"""Simulation and algorithm hyperparameters for LEO multi-satellite beam hopping."""
 
 import math
 
-# 1. System parameters (Table II)
+# 1. System parameters
 N = 16                      # Number of LEO satellites
 M = 144                     # Number of ground cells (12x12 grid)
 J = 14                      # Candidate cells per satellite
@@ -40,18 +40,18 @@ PF_WINDOW = 50              # PF historical throughput window (slots)
 # Geometry calibration:
 # 3 dB beamwidth 3 deg -> 2*pi*r_ap/lambda * sin(1.5 deg) = 1.61633 (first -3 dB point of |2 J1(u)/u|^2)
 KA_APERTURE = 1.61633 / math.sin(math.radians(THETA_3DB_DEG / 2.0))
-CELL_SPACING_M = 54e3       # 54 km cell spacing (matches paper's constellation scale & link budget)
+CELL_SPACING_M = 54e3       # 54 km inter-cell center spacing
 CELL_RADIUS_M = 9.5e3       # 9.5 km user radius inside 3 dB beam footprint
 D_TH_M = 108e3              # Distance prior threshold d_th (2 cell hops)
 ETA_M = 35e3                # Distance prior smoothing factor eta
 
-# 2. Algorithm 1 (ISA) parameters (Table II)
+# 2. ISA association parameters
 T_0 = 100.0
 T_MIN = 1e-3
 RHO = 0.95
 L_MAX = 100
 
-# 3. Algorithm 2 (MAPPO) parameters (Table I & II)
+# 3. MAPPO parameters
 NODE_FEAT_DIM = 5
 D_G = 8
 HIDDEN_DIM = 128

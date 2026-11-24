@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""PyTorch models for MAPPO-BH (Table I), PPO-BH, QMIX-BH, and MADDPG-BH."""
+"""PyTorch models for MAPPO-BH, PPO-BH, QMIX-BH, and MADDPG-BH."""
 
 import math
 import torch
@@ -76,7 +76,7 @@ def evaluate_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor,
 
 
 class MAPPOActor(nn.Module):
-    """Shared MAPPO Actor matching Table I & Section V-B (GAT + priors + GRU + hybrid heads)."""
+    """Shared MAPPO Actor with GAT, geometric/co-visibility priors, GRU, and hybrid heads."""
 
     def __init__(
         self,
@@ -96,14 +96,14 @@ class MAPPOActor(nn.Module):
         self.log_sigma_min = math.log(cfg.SIGMA_MIN)
         self.log_sigma_max = math.log(cfg.SIGMA_MAX)
 
-        # Table I backbone layers
+        # GAT-GRU actor backbone
         self.node_proj = nn.Linear(node_dim, d_g)
         self.attn_vec = nn.Linear(2 * d_g, 1, bias=False)
         self.spatial_fc = nn.Linear(J * d_g, hidden_dim)
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.feat_fc = nn.Linear(hidden_dim, hidden_dim)
 
-        # Global-context heads (Table I) + permutation-equivariant per-node GAT skip scoring
+        # Global-context heads + permutation-equivariant per-node GAT skip scoring
         self.disc_head = nn.Linear(hidden_dim, J)
         self.node_disc_head = nn.Sequential(nn.Linear(node_dim + d_g, 32), nn.ReLU(), nn.Linear(32, 1))
         self.cont_mean_head = nn.Linear(hidden_dim, J)
@@ -166,7 +166,7 @@ class MAPPOActor(nn.Module):
 
 
 class MAPPOCritic(nn.Module):
-    """Centralized Critic matching Table I: 5M -> 256 -> 128 -> 1."""
+    """Centralized Critic MLP: 5M -> 256 -> 128 -> 1."""
 
     def __init__(self, state_dim: int = 5 * cfg.M):
         super().__init__()

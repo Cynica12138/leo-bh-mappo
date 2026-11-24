@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Vectorized LEO multi-satellite direct-to-cell beam hopping simulator (Sections II-V)."""
+"""Vectorized LEO multi-satellite direct-to-cell beam hopping simulator."""
 
 import math
 import numpy as np
@@ -210,7 +210,7 @@ class LEOBHEnv:
         self.slot_idx = 0
 
         # Two-state Markov-Modulated Poisson Process (MMPP) for bursty RT traffic
-        # Preserves exact Table II long-term mean: 20% RT, 80% BULK
+        # Preserves long-term mean traffic split: 20% RT, 80% BULK
         self.p_10 = 1.0 - cfg.MMPP_STAY_ON
         self.p_01 = self.p_10 * cfg.MMPP_P_ON / (1.0 - cfg.MMPP_P_ON)
         low_m = max((1.0 - cfg.MMPP_P_ON * cfg.MMPP_BURST_MULT) / (1.0 - cfg.MMPP_P_ON), 0.12)
@@ -280,7 +280,7 @@ class LEOBHEnv:
             beam_sel: binary (N, J) array selecting K <= K_MAX associated candidate cells per satellite.
             power_ratios: float (N, J) array summing to 1 over selected cells (0 otherwise).
         """
-        # Start-of-slot RT queueing delay Gamma_t (exact paper Eqs. 21-24)
+        # Start-of-slot RT queueing delay Gamma_t
         ages = np.arange(1, cfg.T_TH_R + 1, dtype=np.float64)
         rt_q_start = self.rt_buckets.sum(axis=1)
         tau_u_start = np.where(rt_q_start > 0, (self.rt_buckets @ ages) / np.maximum(rt_q_start, 1e-9), 0.0)
@@ -379,7 +379,7 @@ class LEOBHEnv:
         u_flip = self.rng.random(cfg.M)
         self.cell_on = np.where(self.cell_on, u_flip > self.p_10, u_flip < self.p_01)
 
-        # Shared team reward R_t (Eq. 48) using start-of-slot Gamma_t and slot delivered zeta_t
+        # Shared team reward R_t combining delivered volume zeta_t and RT queueing delay Gamma_t
         reward = self.alpha * (zeta_t / cfg.ZETA_NORM) - (1.0 - self.alpha) * (gamma_t / cfg.GAMMA_NORM)
 
         obs = self._get_obs()

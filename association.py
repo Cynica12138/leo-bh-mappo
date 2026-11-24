@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Cell-satellite association algorithms: ISA (Algorithm 1), NLB, MEA, MMTG."""
+"""Cell-satellite association algorithms: ISA, NLB, MEA, and MMTG."""
 
 import math
 import numpy as np
@@ -41,7 +41,7 @@ def solve_isa(
     L_max: int = cfg.L_MAX,
     rng: np.random.Generator | None = None,
 ) -> np.ndarray:
-    """Algorithm 1: Improved Simulated Annealing (ISA) for P1.
+    """Improved Simulated Annealing (ISA) for cell-satellite load-balancing association.
 
     Returns binary association matrix Z of shape (N, M).
     """
