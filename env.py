@@ -103,6 +103,7 @@ class LEOBHEnv:
         self.Z = None
         self.action_mask = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         self.Omega_prior = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
+        self.I_mat = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
 
     def reset(
         self,
@@ -207,6 +208,38 @@ class LEOBHEnv:
                 off_axis = np.arccos(cos_ang)  # (U,)
                 self.H_sq[n, j, :] = base_path_gain[n] * bessel_beam_gain(off_axis)
 
+        self.H_sq_base = self.H_sq.copy()
+        self.cell_fade_db = np.zeros(cfg.M, dtype=np.float64)
+        if cfg.TIME_VARYING_FADING and cfg.FADING_STD_DB > 0.0:
+            self.cell_fade_db = self.rng.normal(0.0, cfg.FADING_STD_DB, size=cfg.M)
+            fade_lin = 10.0 ** (self.cell_fade_db[self.user_cell] / 10.0)
+            self.H_sq = self.H_sq_base * fade_lin[None, None, :]
+
+        # Per-satellite associated user lists for local credit assignment
+        self.sat_users_arr = []
+        for n in range(cfg.N):
+            lst = []
+            for m in range(cfg.M):
+                if self.cell_sat[m] == n and len(self.cell_users_arr[m]) > 0:
+                    lst.extend(self.cell_users_arr[m].tolist())
+            self.sat_users_arr.append(np.array(lst, dtype=np.int32))
+
+        # Exact normalized intra-satellite beam interference coupling matrix I_mat (N, J, J)
+        self.I_mat.fill(0.0)
+        for n in range(cfg.N):
+            for j in range(cfg.J):
+                mj = self.cand_cells[n, j]
+                if mj < 0:
+                    continue
+                us = self.cell_users_arr[mj]
+                if len(us) == 0:
+                    continue
+                sig_j = max(float(self.H_sq[n, j, us].mean()), 1e-30)
+                for i in range(cfg.J):
+                    if i == j or self.cand_cells[n, i] < 0:
+                        continue
+                    self.I_mat[n, i, j] = float(np.clip(self.H_sq[n, i, us].mean() / sig_j, 0.0, 2.0))
+
         # Queue state:
         # rt_buckets[u, age-1] for age in 1..T_TH_R (float packets)
         self.rt_buckets = np.zeros((self.U, cfg.T_TH_R), dtype=np.float64)
@@ -264,16 +297,34 @@ class LEOBHEnv:
 
         s_t = cell_feat.ravel().copy()  # (5*M,)
         F_t = np.zeros((cfg.N, cfg.J, 5), dtype=np.float32)
+        F_rich = np.zeros((cfg.N, cfg.J, cfg.RICH_NODE_DIM), dtype=np.float32)
+        eff_t_noise = cfg.T_NOISE * (10.0 ** (cfg.UE_LOSS_NF_DB / 10.0))
+        noise_full_bw = cfg.K_BOLTZMANN * eff_t_noise * cfg.B_TOT
+        p_nom = cfg.P_TOT_W / cfg.K_MAX
         for n in range(cfg.N):
             for j in range(cfg.J):
                 m = self.cand_cells[n, j]
                 if m >= 0:
                     F_t[n, j] = cell_feat[m]
                     F_t[n, j, 4] = self.v_local[n, j]
+                    us = self.cell_users_arr[m]
+                    if len(us) > 0:
+                        F_rich[n, j, 0] = min(float(rt_q[us].sum()) / 800.0, 5.0)
+                        F_rich[n, j, 1] = min(float(self.bulk_queue[us].sum()) / 2000.0, 5.0)
+                        F_rich[n, j, 2] = cell_feat[m, 1]
+                        F_rich[n, j, 3] = cell_feat[m, 2]
+                        snr_lin = (p_nom * self.H_sq[n, j, us]) / noise_full_bw
+                        snr_db = float(10.0 * np.log10(max(float(snr_lin.mean()), 1e-6)))
+                        F_rich[n, j, 4] = float(np.clip((snr_db - 20.0) / 15.0, -2.5, 2.5))
+                        F_rich[n, j, 5] = cell_feat[m, 3]
+                        F_rich[n, j, 7] = min(float(len(us)) / 5.0, 2.0)
+                    F_rich[n, j, 6] = self.v_local[n, j]
 
         return {
             "s": s_t,
             "F": F_t,
+            "F_rich": F_rich,
+            "I_mat": self.I_mat,
             "Omega": self.Omega_prior,
             "C": self.C_prior,
             "real_mask": self.real_mask,
@@ -303,7 +354,8 @@ class LEOBHEnv:
         # Total received power from ALL active beams across all satellites for every user u:
         # P_beam (N, J) contracted with H_sq (N, J, U) -> total_rx (U,)
         total_rx = np.einsum("nj,nju->u", P_beam, self.H_sq)  # (U,)
-        noise_full_bw = cfg.K_BOLTZMANN * cfg.T_NOISE * cfg.B_TOT
+        eff_t_noise = cfg.T_NOISE * (10.0 ** (cfg.UE_LOSS_NF_DB / 10.0))
+        noise_full_bw = cfg.K_BOLTZMANN * eff_t_noise * cfg.B_TOT
 
         # Compute achieved rate R_t^u (bps) for users in illuminated cells via PF RB scheduling
         user_rate = np.zeros(self.U, dtype=np.float64)
@@ -386,8 +438,25 @@ class LEOBHEnv:
         u_flip = self.rng.random(cfg.M)
         self.cell_on = np.where(self.cell_on, u_flip > self.p_10, u_flip < self.p_01)
 
-        # Shared team reward R_t combining delivered volume zeta_t and RT queueing delay Gamma_t
+        # Shared team reward R_t and per-satellite local reward vector for credit assignment
         reward = self.alpha * (zeta_t / cfg.ZETA_NORM) - (1.0 - self.alpha) * (gamma_t / cfg.GAMMA_NORM)
+        delivered_bits_u = served_total * cfg.L_P
+        r_local = np.zeros(cfg.N, dtype=np.float32)
+        sat_zeta_norm = cfg.ZETA_NORM / cfg.N
+        for n in range(cfg.N):
+            us = self.sat_users_arr[n]
+            if len(us) == 0:
+                continue
+            sat_bits = float(delivered_bits_u[us].sum())
+            sat_delay = float(tau_u_start[us].mean())
+            r_local[n] = self.alpha * (sat_bits / sat_zeta_norm) - (1.0 - self.alpha) * (sat_delay / cfg.GAMMA_NORM)
+
+        # Advance AR(1) time-varying fading if enabled
+        if cfg.TIME_VARYING_FADING and cfg.FADING_STD_DB > 0.0:
+            innov_std = cfg.FADING_STD_DB * math.sqrt(max(1.0 - cfg.FADING_CORR ** 2, 1e-6))
+            self.cell_fade_db = cfg.FADING_CORR * self.cell_fade_db + self.rng.normal(0.0, innov_std, size=cfg.M)
+            fade_lin = 10.0 ** (self.cell_fade_db[self.user_cell] / 10.0)
+            self.H_sq = self.H_sq_base * fade_lin[None, None, :]
 
         obs = self._get_obs()
         info = {
@@ -395,5 +464,6 @@ class LEOBHEnv:
             "gamma_t": gamma_t,
             "expired_rt": expired_rt,
             "per_user_mbps": (zeta_t / cfg.T_SLOT) / (self.U * 1e6),
+            "r_local": r_local,
         }
         return obs, float(reward), info

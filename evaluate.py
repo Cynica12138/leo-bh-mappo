@@ -37,7 +37,8 @@ class MAPPOPolicyWrapper:
     @torch.no_grad()
     def act(self, obs: dict):
         b, p, _, _, _, self.h = self.actor.act(
-            torch.from_numpy(obs["F"]),
+            torch.from_numpy(obs["F_rich"]),
+            torch.from_numpy(obs["I_mat"]),
             torch.from_numpy(obs["Omega"]),
             torch.from_numpy(obs["C"]),
             torch.from_numpy(obs["real_mask"]),
@@ -121,7 +122,7 @@ class MADDPGPolicyWrapper:
 
 def benchmark_mappo_latency(policy: MAPPOPolicyWrapper, env: LEOBHEnv):
     torch.set_num_threads(1)
-    obs = env.reset(input_rate_mbps=40.0, num_users=300, seed=999)
+    obs = env.reset(input_rate_mbps=40.0, num_users=cfg.EVAL_USERS, seed=999)
     policy.reset()
     for _ in range(30):
         policy.act(obs)
@@ -162,7 +163,7 @@ def main():
         for name, pol in policies.items():
             tputs, delays = [], []
             for tc in range(args.test_cases):
-                obs = env.reset(input_rate_mbps=rate, num_users=200, seed=1000 + tc)
+                obs = env.reset(input_rate_mbps=rate, num_users=cfg.EVAL_USERS, seed=1000 + tc)
                 pol.reset()
                 tot_bits = 0.0
                 d_sum = 0.0

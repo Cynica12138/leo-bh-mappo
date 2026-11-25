@@ -109,12 +109,12 @@ def evaluate_without_replacement_batch(
 
 
 class MAPPOActor(nn.Module):
-    """Shared MAPPO Actor with GAT, geometric/co-visibility priors, GRU, and hybrid heads."""
+    """Shared permutation-equivariant MAPPO Actor with CSI/interference GAT, GRU, and hybrid heads."""
 
     def __init__(
         self,
-        node_dim: int = cfg.NODE_FEAT_DIM,
-        d_g: int = cfg.D_G,
+        node_dim: int = cfg.RICH_NODE_DIM,
+        d_g: int = cfg.D_G_RICH,
         J: int = cfg.J,
         hidden_dim: int = cfg.HIDDEN_DIM,
         xi_1: float = cfg.XI_1,
@@ -126,67 +126,76 @@ class MAPPOActor(nn.Module):
         self.hidden_dim = hidden_dim
         self.xi_1 = xi_1
         self.xi_2 = xi_2
-        self.log_sigma_min = math.log(cfg.SIGMA_MIN)
-        self.log_sigma_max = math.log(cfg.SIGMA_MAX)
+        self.log_sigma_min = math.log(0.12)
+        self.log_sigma_max = math.log(0.85)
 
         # Permutation-equivariant GAT-GRU actor backbone
         self.node_proj = nn.Linear(node_dim, d_g)
         self.attn_vec = nn.Linear(2 * d_g, 1, bias=False)
+        self.w_attn_int = nn.Parameter(torch.tensor(1.0))
         self.spatial_fc = nn.Linear(d_g, hidden_dim)
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.feat_fc = nn.Linear(hidden_dim, hidden_dim)
         self.ctx_proj = nn.Linear(hidden_dim, 16)
 
         # Shared per-node hybrid heads (strictly permutation-equivariant across candidate cells)
-        self.node_disc_head = nn.Sequential(nn.Linear(node_dim + 3 + d_g + 16, 64), nn.ReLU(), nn.Linear(64, 1))
-        self.node_power_head = nn.Sequential(nn.Linear(node_dim + 3 + d_g + 16, 64), nn.ReLU(), nn.Linear(64, 1))
+        in_head = node_dim + 4 + d_g + 16
+        self.node_disc_head = nn.Sequential(nn.Linear(in_head, 64), nn.ReLU(), nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 1))
+        self.node_power_head = nn.Sequential(nn.Linear(in_head, 64), nn.ReLU(), nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 1))
         self.cont_std_head = nn.Linear(hidden_dim, 1)
-        # Learnable sequential interference repulsion weights using Omega and C priors
-        self.repulse_omega = nn.Parameter(torch.tensor(0.4))
+        # Learnable sequential interference repulsion weights using exact I_mat, Omega, and C priors
+        self.repulse_imat = nn.Parameter(torch.tensor(1.2))
+        self.repulse_omega = nn.Parameter(torch.tensor(-0.5))
         self.repulse_cov = nn.Parameter(torch.tensor(-3.0))
 
-    def _pair_penalty(self, Omega: torch.Tensor, C: torch.Tensor) -> torch.Tensor:
+    def _pair_penalty(self, I_mat: torch.Tensor, Omega: torch.Tensor, C: torch.Tensor) -> torch.Tensor:
+        w_i = F.softplus(self.repulse_imat)
         w_om = F.softplus(self.repulse_omega)
         w_c = F.softplus(self.repulse_cov)
+        sym_I = 0.5 * (I_mat + I_mat.transpose(-1, -2))
         eye = torch.eye(self.J, device=Omega.device, dtype=Omega.dtype).unsqueeze(0)
-        return (w_om * Omega + w_c * C) * (1.0 - eye)
+        return (w_i * sym_I + w_om * Omega + w_c * C) * (1.0 - eye)
 
-    def _encode_gat(self, F_in: torch.Tensor, Omega: torch.Tensor, C: torch.Tensor, real_mask: torch.Tensor):
+    def _encode_gat(self, F_in: torch.Tensor, I_mat: torch.Tensor, Omega: torch.Tensor, C: torch.Tensor, real_mask: torch.Tensor):
         B, J, _ = F_in.shape
         v = self.node_proj(F_in)  # (B, J, d_g)
         vi = v.unsqueeze(2).expand(B, J, J, self.d_g)
         vj = v.unsqueeze(1).expand(B, J, J, self.d_g)
         e = F.leaky_relu(self.attn_vec(torch.cat([vi, vj], dim=-1)).squeeze(-1), negative_slope=0.2)
-        score = e + self.xi_1 * Omega + self.xi_2 * C
+        score = e + self.w_attn_int * I_mat + self.xi_1 * Omega + self.xi_2 * C
         nbr_mask = real_mask.unsqueeze(1) > 0.5
         score = score.masked_fill(~nbr_mask, -1e9)
         psi = F.softmax(score, dim=-1) * real_mask.unsqueeze(2)
         o_hat = torch.tanh(torch.bmm(psi, v))  # (B, J, d_g)
         return o_hat
 
-    def forward_step(self, F_in, Omega, C, real_mask, h_in):
+    def forward_step(self, F_in, I_mat, Omega, C, real_mask, h_in):
         B, J, _ = F_in.shape
-        o_hat = self._encode_gat(F_in, Omega, C, real_mask)  # (B, J, d_g)
+        o_hat = self._encode_gat(F_in, I_mat, Omega, C, real_mask)  # (B, J, d_g)
         pool_ctx = (o_hat * real_mask.unsqueeze(-1)).sum(dim=1) / real_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
         sp = F.relu(self.spatial_fc(pool_ctx))  # (B, 128)
         gru_out, h_next = self.gru(sp.unsqueeze(1), h_in)
         feat = F.relu(self.feat_fc(gru_out.squeeze(1)))  # (B, 128)
         ctx_b = self.ctx_proj(feat).unsqueeze(1).expand(B, J, -1)
 
-        log_qdh = torch.log1p(20.0 * F_in[..., :3].clamp(min=0.0))
-        node_cat = torch.cat([F_in, log_qdh, o_hat, ctx_b], dim=-1)  # (B, J, 5 + 3 + d_g + 16)
+        log_q = torch.log1p(15.0 * F_in[..., :4].clamp(min=0.0))
+        node_cat = torch.cat([F_in, log_q, o_hat, ctx_b], dim=-1)
         disc_logits = self.node_disc_head(node_cat).squeeze(-1)
         mu = 4.0 * torch.tanh(self.node_power_head(node_cat).squeeze(-1))
         log_std = self.log_sigma_min + 0.5 * (self.log_sigma_max - self.log_sigma_min) * (
-            torch.tanh(self.cont_std_head(feat) - 1.2) + 1.0
+            torch.tanh(self.cont_std_head(feat) - 0.8) + 1.0
         )
         return disc_logits, mu, log_std.exp().expand(B, J), h_next
 
+    def _eff_mask(self, F_in: torch.Tensor, action_mask: torch.Tensor) -> torch.Tensor:
+        has_q = (F_in[..., 0] + F_in[..., 1]) > 1e-6
+        return action_mask * has_q.to(action_mask.dtype)
+
     @torch.no_grad()
-    def act(self, F_in, Omega, C, real_mask, action_mask, h_in, deterministic: bool = False):
-        disc_logits, mu, std, h_next = self.forward_step(F_in, Omega, C, real_mask, h_in)
-        eff_mask = active_backlog_mask(F_in, action_mask)
-        pen = self._pair_penalty(Omega, C)
+    def act(self, F_in, I_mat, Omega, C, real_mask, action_mask, h_in, deterministic: bool = False):
+        disc_logits, mu, std, h_next = self.forward_step(F_in, I_mat, Omega, C, real_mask, h_in)
+        eff_mask = self._eff_mask(F_in, action_mask)
+        pen = self._pair_penalty(I_mat, Omega, C)
         j_seq, b_mask, lp_d, _ = sample_without_replacement_batch(
             disc_logits, eff_mask, cfg.K_MAX, deterministic=deterministic, pair_penalty=pen
         )
@@ -203,10 +212,10 @@ class MAPPOActor(nn.Module):
         p = p / p.sum(dim=-1, keepdim=True).clamp(min=1e-9)
         return b_mask, p, j_seq, y, lp_d + lp_c, h_next
 
-    def evaluate_actions(self, F_in, Omega, C, real_mask, action_mask, h_in, j_seq, y, b_mask):
-        disc_logits, mu, std, _ = self.forward_step(F_in, Omega, C, real_mask, h_in)
-        eff_mask = active_backlog_mask(F_in, action_mask)
-        pen = self._pair_penalty(Omega, C)
+    def evaluate_actions(self, F_in, I_mat, Omega, C, real_mask, action_mask, h_in, j_seq, y, b_mask):
+        disc_logits, mu, std, _ = self.forward_step(F_in, I_mat, Omega, C, real_mask, h_in)
+        eff_mask = self._eff_mask(F_in, action_mask)
+        pen = self._pair_penalty(I_mat, Omega, C)
         lp_d, ent_d = evaluate_without_replacement_batch(disc_logits, eff_mask, j_seq, pair_penalty=pen)
         dist = torch.distributions.Normal(mu, std)
         lp_c = (dist.log_prob(y) * b_mask).sum(dim=-1)
@@ -215,20 +224,22 @@ class MAPPOActor(nn.Module):
 
 
 class MAPPOCritic(nn.Module):
-    """Centralized Critic MLP: 5M -> 256 -> 128 -> 1."""
+    """Per-satellite CTDE Centralized Critic taking global state s_t and per-satellite rich features."""
 
-    def __init__(self, state_dim: int = 5 * cfg.M):
+    def __init__(self, state_dim: int = 5 * cfg.M, local_dim: int = 2 * cfg.RICH_NODE_DIM):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(state_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1),
-        )
+        self.global_enc = nn.Sequential(nn.Linear(state_dim, 128), nn.ReLU(), nn.Linear(128, 64), nn.ReLU())
+        self.local_enc = nn.Sequential(nn.Linear(local_dim, 64), nn.ReLU())
+        self.head = nn.Sequential(nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, 1))
 
-    def forward(self, s: torch.Tensor) -> torch.Tensor:
-        return self.net(s).squeeze(-1)
+    def forward(self, s: torch.Tensor, F_rich: torch.Tensor, am: torch.Tensor) -> torch.Tensor:
+        B, N, _, _ = F_rich.shape
+        g = self.global_enc(s).unsqueeze(1).expand(B, N, -1)
+        denom = am.sum(dim=2, keepdim=True).clamp(min=1.0)
+        f_mean = (F_rich * am.unsqueeze(-1)).sum(dim=2) / denom
+        f_max = (F_rich * am.unsqueeze(-1)).max(dim=2).values
+        loc = self.local_enc(torch.cat([f_mean, f_max], dim=-1))
+        return self.head(torch.cat([g, loc], dim=-1)).squeeze(-1)
 
 
 class PPOBHModel(nn.Module):

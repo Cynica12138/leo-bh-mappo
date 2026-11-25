@@ -2,6 +2,7 @@
 """Train MAPPO-BH, PPO-BH, QMIX-BH, and MADDPG-BH (BC warm-start + genuine RL fine-tuning)."""
 
 import argparse
+import math
 import os
 import time
 import copy
@@ -35,6 +36,82 @@ def compute_gae(rewards, values, next_value, gamma=cfg.GAMMA, lam=cfg.LAMBDA_GAE
         adv[t] = last_gae
     ret = adv + np.array(values, dtype=np.float32)
     return adv, ret
+
+
+def compute_gae_vec(rewards, values, next_value, gamma=cfg.GAMMA, lam=cfg.LAMBDA_GAE):
+    """Vectorized per-satellite GAE for mixed local+global credit assignment."""
+    T, N = rewards.shape
+    adv = np.zeros((T, N), dtype=np.float32)
+    last = np.zeros(N, dtype=np.float32)
+    for t in reversed(range(T)):
+        vn = next_value if t == T - 1 else values[t + 1]
+        delta = rewards[t] + gamma * vn - values[t]
+        last = delta + gamma * lam * last
+        adv[t] = last
+    return adv, adv + values
+
+
+def compute_rich_teacher_targets(obs: dict):
+    """CSI + RT/BULK + interference-aware initial targets for MAPPO-BH BC warm-start."""
+    F = obs["F_rich"]   # [rt_q, bulk_q, avg_d, hol_w, snr_norm, hist_tput, v_local, user_cnt]
+    I_mat = obs["I_mat"]
+    am = obs["action_mask"]
+    N, J = am.shape
+    sc = np.zeros((N, J), dtype=np.float32)
+    pw = np.zeros((N, J), dtype=np.float32)
+
+    for n in range(N):
+        avail = np.where((am[n] > 0.5) & ((F[n, :, 0] + F[n, :, 1]) > 1e-6))[0]
+        if len(avail) == 0:
+            continue
+        rt_q = F[n, :, 0]
+        bulk_q = F[n, :, 1]
+        d = F[n, :, 2]
+        hol = F[n, :, 3]
+        snr = F[n, :, 4]
+        base = 2.6 * rt_q + 1.4 * bulk_q + 4.0 * d + 2.5 * hol + cfg.SNR_PRIOR_W * snr
+        demand = rt_q + 0.6 * bulk_q + d
+        sym_I = 0.5 * (I_mat[n] + I_mat[n].T)
+        s = base - 0.6 * (sym_I @ demand)
+        sc[n, avail] = np.clip(s[avail], -3.0, 12.0)
+
+        w = np.maximum(0.8 * rt_q[avail] + 0.6 * bulk_q[avail] + 2.5 * d[avail] + 1.5 * hol[avail], 0.015)
+        p_log = 0.75 * np.log(w) + cfg.SNR_POW_W * snr[avail] + 0.4
+        pw[n, avail] = np.clip(p_log, -3.5, 3.5)
+    return sc, pw
+
+
+def collect_rich_bc_dataset(num_episodes: int = 20, slots: int = 40, seed: int = 777):
+    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed)
+    data = []
+    for ep in range(num_episodes):
+        rate = float(cfg.EVAL_RATES_MBPS[ep % len(cfg.EVAL_RATES_MBPS)])
+        num_u = int(cfg.EVAL_USERS + ((ep * 13) % 41) - 20)
+        obs = env.reset(input_rate_mbps=rate, num_users=num_u)
+        for _ in range(slots):
+            sc, pw = compute_rich_teacher_targets(obs)
+            data.append((obs["F_rich"], obs["I_mat"], obs["Omega"], obs["C"], obs["real_mask"], obs["action_mask"], sc, pw))
+            am = obs["action_mask"]
+            F_r = obs["F_rich"]
+            sym_I = 0.5 * (obs["I_mat"] + np.transpose(obs["I_mat"], (0, 2, 1)))
+            b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
+            p = np.zeros((cfg.N, cfg.J), dtype=np.float32)
+            for n in range(cfg.N):
+                occ = np.where((am[n] > 0.5) & ((F_r[n, :, 0] + F_r[n, :, 1]) > 1e-6))[0]
+                k = min(cfg.K_MAX, len(occ))
+                if k == 0:
+                    continue
+                cur = sc[n].copy()
+                chosen, rem = [], list(occ)
+                for _ in range(k):
+                    bj = rem[int(np.argmax([cur[j] for j in rem]))]
+                    chosen.append(bj); rem.remove(bj)
+                    cur -= 1.5 * sym_I[n, bj]
+                b[n, chosen] = 1.0
+                ex = np.exp(pw[n, chosen])
+                p[n, chosen] = ex / ex.sum()
+            obs, _, _ = env.step(b, p)
+    return data
 
 
 def equal_power_np(b_mask: np.ndarray) -> np.ndarray:
@@ -86,7 +163,7 @@ def collect_bc_dataset(num_episodes: int = 24, slots: int = 40, interference_awa
     data = []
     for ep in range(num_episodes):
         rate = float(cfg.EVAL_RATES_MBPS[ep % len(cfg.EVAL_RATES_MBPS)])
-        num_u = int(170 + (ep * 13) % 65)
+        num_u = int(cfg.EVAL_USERS + ((ep * 13) % 51) - 25)
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         for _ in range(slots):
             sc, pw = compute_teacher_targets(obs, interference_aware=interference_aware)
@@ -126,7 +203,7 @@ def collect_bc_dataset(num_episodes: int = 24, slots: int = 40, interference_awa
 def validate_policy(eval_fn, env: LEOBHEnv, slots: int = 80, rate: float = 50.0):
     tputs, delays, rews = [], [], []
     for tc in range(5):
-        obs = env.reset(input_rate_mbps=rate, num_users=200, seed=5000 + tc)
+        obs = env.reset(input_rate_mbps=rate, num_users=cfg.EVAL_USERS, seed=5000 + tc)
         state = eval_fn("reset", None, None)
         tot_bits, d_sum, r_sum = 0.0, 0.0, 0.0
         for step_i in range(slots + 20):
@@ -136,7 +213,7 @@ def validate_policy(eval_fn, env: LEOBHEnv, slots: int = 80, rate: float = 50.0)
                 tot_bits += info["zeta_t"]
                 d_sum += info["gamma_t"]
                 r_sum += r
-        tputs.append((tot_bits / (slots * cfg.T_SLOT)) / (200 * 1e6))
+        tputs.append((tot_bits / (slots * cfg.T_SLOT)) / (cfg.EVAL_USERS * 1e6))
         delays.append(d_sum / slots)
         rews.append(r_sum)
     return float(np.mean(rews)), float(np.mean(tputs)), float(np.mean(delays))
@@ -153,7 +230,8 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
     opt_bc = torch.optim.Adam(actor.parameters(), lr=2e-3)
     seq_len = 40
     n_eps_bc = len(bc_data) // seq_len
-    t_F_seq = torch.tensor(np.array([d[1] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.NODE_FEAT_DIM).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.NODE_FEAT_DIM)
+    t_F_seq = torch.tensor(np.array([d[0] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.RICH_NODE_DIM).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.RICH_NODE_DIM)
+    t_I_seq = torch.tensor(np.array([d[1] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.J).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.J)
     t_Om_seq = torch.tensor(np.array([d[2] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.J).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.J)
     t_C_seq = torch.tensor(np.array([d[3] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.J).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.J)
     t_rm_seq = torch.tensor(np.array([d[4] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
@@ -161,36 +239,39 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
     t_sc_seq = torch.tensor(np.array([d[6] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
     t_pw_seq = torch.tensor(np.array([d[7] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
     B_seq = t_F_seq.shape[0]
-    for _ in range(25):
+    for _ in range(18):
         perm = torch.randperm(B_seq)
-        for st in range(0, B_seq, 108):
-            idx = perm[st : st + 108]
+        for st in range(0, B_seq, 96):
+            idx = perm[st : st + 96]
             h = torch.zeros(1, len(idx), cfg.HIDDEN_DIM)
             loss_sum = 0.0
             for t in range(seq_len):
-                logits, mu, _, h = actor.forward_step(t_F_seq[idx, t], t_Om_seq[idx, t], t_C_seq[idx, t], t_rm_seq[idx, t], h)
-                am = t_am_seq[idx, t] * (t_F_seq[idx, t][..., 0] > 1e-6).float()
+                logits, mu, _, h = actor.forward_step(
+                    t_F_seq[idx, t], t_I_seq[idx, t], t_Om_seq[idx, t], t_C_seq[idx, t], t_rm_seq[idx, t], h
+                )
+                am = t_am_seq[idx, t] * ((t_F_seq[idx, t][..., 0] + t_F_seq[idx, t][..., 1]) > 1e-6).float()
                 denom = am.sum().clamp(min=1.0)
                 loss_d = ((logits - t_sc_seq[idx, t]) ** 2 * am).sum() / denom
                 loss_p = ((mu - t_pw_seq[idx, t]) ** 2 * am).sum() / denom
-                loss_sum = loss_sum + (loss_d + 1.5 * loss_p)
+                loss_sum = loss_sum + (loss_d + 1.2 * loss_p)
             loss = loss_sum / seq_len
             opt_bc.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(actor.parameters(), 1.0)
             opt_bc.step()
 
-    # Phase 2: Genuine MAPPO RL fine-tuning
+    # Phase 2: Genuine MAPPO RL fine-tuning with local+global mixed credit assignment
     env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed)
     val_env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=999)
-    opt_a = torch.optim.Adam(actor.parameters(), lr=5e-5)
-    opt_c = torch.optim.Adam(critic.parameters(), lr=cfg.LR_CRITIC)
+    opt_a = torch.optim.Adam(actor.parameters(), lr=2.5e-4)
+    opt_c = torch.optim.Adam(critic.parameters(), lr=5e-4)
 
     def eval_fn(cmd, obs, state):
         if cmd == "reset":
             return torch.zeros(1, cfg.N, cfg.HIDDEN_DIM)
         b, p, _, _, _, h_n = actor.act(
-            torch.from_numpy(obs["F"]),
+            torch.from_numpy(obs["F_rich"]),
+            torch.from_numpy(obs["I_mat"]),
             torch.from_numpy(obs["Omega"]),
             torch.from_numpy(obs["C"]),
             torch.from_numpy(obs["real_mask"]),
@@ -204,45 +285,55 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
     vr0, vt0, vd0 = validate_policy(eval_fn, val_env)
     best_val = vr0
     best_state = copy.deepcopy(actor.state_dict())
-    print(f"  [MAPPO-BH] post-BC | val@50Mbps: tput={vt0:5.2f} Mbps, delay={vd0:4.2f} slots, ret={vr0:6.2f}")
+    print(f"  [MAPPO-BH] post-BC | val@50Mbps: tput={vt0:5.2f} Mbps, delay={vd0:4.2f} slots, ret={vr0:6.2f}", flush=True)
 
     history = []
     batch_eps = 4
-    acc = {k: [] for k in ["s", "F", "Om", "C", "rm", "am", "h", "j", "y", "b", "lp", "adv", "ret"]}
+    acc = {k: [] for k in ["s", "F", "I", "Om", "C", "rm", "am", "h", "j", "y", "b", "lp", "adv", "ret"]}
 
     for ep in range(1, episodes + 1):
-        rate = float(np.random.choice(cfg.EVAL_RATES_MBPS))
-        num_u = int(np.random.randint(170, 235))
+        lr_cur = 4e-5 + 0.5 * (2.5e-4 - 4e-5) * (1.0 + math.cos(math.pi * ep / episodes))
+        for pg in opt_a.param_groups:
+            pg["lr"] = lr_cur
+
+        rate = float(np.random.choice([20, 25, 30, 35, 40, 45, 50]))
+        num_u = int(cfg.EVAL_USERS + np.random.randint(-25, 26))
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         h = torch.zeros(1, cfg.N, cfg.HIDDEN_DIM)
 
-        buf_s, buf_F, buf_Om, buf_C, buf_rm, buf_am, buf_h = [], [], [], [], [], [], []
+        buf_s, buf_F, buf_I, buf_Om, buf_C, buf_rm, buf_am, buf_h = [], [], [], [], [], [], [], []
         buf_j, buf_y, buf_b, buf_lp, buf_r, buf_v = [], [], [], [], [], []
         ep_ret = 0.0
 
         for _ in range(slots):
             s_t = torch.from_numpy(obs["s"]).unsqueeze(0)
-            F_t = torch.from_numpy(obs["F"])
+            F_t = torch.from_numpy(obs["F_rich"])
+            I_t = torch.from_numpy(obs["I_mat"])
             Om_t = torch.from_numpy(obs["Omega"])
             C_t = torch.from_numpy(obs["C"])
             rm_t = torch.from_numpy(obs["real_mask"])
             am_t = torch.from_numpy(obs["action_mask"])
             with torch.no_grad():
-                v_t = critic(s_t).item()
-                b_m, p_m, j_seq, y_s, lp_n, h_next = actor.act(F_t, Om_t, C_t, rm_t, am_t, h, deterministic=False)
-            next_obs, rew, _ = env.step(b_m.numpy(), p_m.numpy())
+                v_n = critic(s_t, F_t.unsqueeze(0), am_t.unsqueeze(0)).squeeze(0).numpy()
+                b_m, p_m, j_seq, y_s, lp_n, h_next = actor.act(F_t, I_t, Om_t, C_t, rm_t, am_t, h, deterministic=False)
+            next_obs, rew, info = env.step(b_m.numpy(), p_m.numpy())
             ep_ret += rew
+            r_mix = cfg.LOCAL_REWARD_WEIGHT * info["r_local"] + (1.0 - cfg.LOCAL_REWARD_WEIGHT) * float(rew)
 
-            buf_s.append(obs["s"]); buf_F.append(obs["F"]); buf_Om.append(obs["Omega"])
-            buf_C.append(obs["C"]); buf_rm.append(obs["real_mask"]); buf_am.append(obs["action_mask"])
+            buf_s.append(obs["s"]); buf_F.append(obs["F_rich"]); buf_I.append(obs["I_mat"])
+            buf_Om.append(obs["Omega"]); buf_C.append(obs["C"]); buf_rm.append(obs["real_mask"]); buf_am.append(obs["action_mask"])
             buf_h.append(h.squeeze(0).numpy()); buf_j.append(j_seq.numpy()); buf_y.append(y_s.numpy())
-            buf_b.append(b_m.numpy()); buf_lp.append(lp_n.numpy()); buf_r.append(rew); buf_v.append(v_t)
+            buf_b.append(b_m.numpy()); buf_lp.append(lp_n.numpy()); buf_r.append(r_mix); buf_v.append(v_n)
             obs, h = next_obs, h_next
 
         with torch.no_grad():
-            next_v = critic(torch.from_numpy(obs["s"]).unsqueeze(0)).item()
-        adv, ret = compute_gae(buf_r, buf_v, next_v)
-        for k, v in [("s", buf_s), ("F", buf_F), ("Om", buf_Om), ("C", buf_C), ("rm", buf_rm), ("am", buf_am),
+            next_v = critic(
+                torch.from_numpy(obs["s"]).unsqueeze(0),
+                torch.from_numpy(obs["F_rich"]).unsqueeze(0),
+                torch.from_numpy(obs["action_mask"]).unsqueeze(0),
+            ).squeeze(0).numpy()
+        adv, ret = compute_gae_vec(np.array(buf_r), np.array(buf_v), next_v)
+        for k, v in [("s", buf_s), ("F", buf_F), ("I", buf_I), ("Om", buf_Om), ("C", buf_C), ("rm", buf_rm), ("am", buf_am),
                      ("h", buf_h), ("j", buf_j), ("y", buf_y), ("b", buf_b), ("lp", buf_lp)]:
             acc[k].append(np.array(v))
         acc["adv"].append(adv); acc["ret"].append(ret)
@@ -251,15 +342,19 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
         if ep % batch_eps == 0 or ep == episodes:
             t_s = torch.tensor(np.concatenate(acc["s"], axis=0), dtype=torch.float32)
             T = t_s.shape[0]
+            t_F_3d = torch.tensor(np.concatenate(acc["F"], axis=0), dtype=torch.float32)
+            t_am_3d = torch.tensor(np.concatenate(acc["am"], axis=0), dtype=torch.float32)
+            t_ret = torch.tensor(np.concatenate(acc["ret"], axis=0), dtype=torch.float32)
+
             adv_all = np.concatenate(acc["adv"], axis=0)
             adv_all = (adv_all - adv_all.mean()) / (adv_all.std() + 1e-8)
-            t_ret = torch.tensor(np.concatenate(acc["ret"], axis=0), dtype=torch.float32)
-            t_adv = torch.tensor(adv_all, dtype=torch.float32).unsqueeze(1).expand(T, cfg.N).reshape(-1)
-            t_F = torch.tensor(np.concatenate(acc["F"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J, cfg.NODE_FEAT_DIM)
+            t_adv = torch.tensor(adv_all, dtype=torch.float32).reshape(-1)
+            t_F = t_F_3d.reshape(T * cfg.N, cfg.J, cfg.RICH_NODE_DIM)
+            t_I = torch.tensor(np.concatenate(acc["I"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J, cfg.J)
             t_Om = torch.tensor(np.concatenate(acc["Om"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J, cfg.J)
             t_C = torch.tensor(np.concatenate(acc["C"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J, cfg.J)
             t_rm = torch.tensor(np.concatenate(acc["rm"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J)
-            t_am = torch.tensor(np.concatenate(acc["am"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J)
+            t_am = t_am_3d.reshape(T * cfg.N, cfg.J)
             t_h = torch.tensor(np.concatenate(acc["h"], axis=0), dtype=torch.float32).reshape(1, T * cfg.N, cfg.HIDDEN_DIM)
             t_j = torch.tensor(np.concatenate(acc["j"], axis=0), dtype=torch.long).reshape(T * cfg.N, cfg.K_MAX)
             t_y = torch.tensor(np.concatenate(acc["y"], axis=0), dtype=torch.float32).reshape(T * cfg.N, cfg.J)
@@ -274,15 +369,15 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
                     for start in range(0, total_samples, 512):
                         idx = perm_a[start : start + 512]
                         new_lp, ent_d, ent_c = actor.evaluate_actions(
-                            t_F[idx], t_Om[idx], t_C[idx], t_rm[idx], t_am[idx], t_h[:, idx, :], t_j[idx], t_y[idx], t_b[idx]
+                            t_F[idx], t_I[idx], t_Om[idx], t_C[idx], t_rm[idx], t_am[idx], t_h[:, idx, :], t_j[idx], t_y[idx], t_b[idx]
                         )
                         log_ratio = (new_lp - t_old_lp[idx]).clamp(-10, 10)
-                        if ((log_ratio.exp() - 1.0) - log_ratio).mean().item() > 0.015:
+                        if ((log_ratio.exp() - 1.0) - log_ratio).mean().item() > 0.025:
                             stop_early = True
                             break
                         ratio = log_ratio.exp()
                         surr = torch.min(ratio * t_adv[idx], ratio.clamp(1.0 - cfg.EPS_CLIP, 1.0 + cfg.EPS_CLIP) * t_adv[idx])
-                        loss_a = -surr.mean() - 0.002 * ent_d.mean() - 0.0005 * ent_c.mean()
+                        loss_a = -surr.mean() - 0.003 * ent_d.mean() - 0.001 * ent_c.mean()
                         opt_a.zero_grad()
                         loss_a.backward()
                         nn.utils.clip_grad_norm_(actor.parameters(), 0.5)
@@ -291,7 +386,7 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
                 perm_c = torch.randperm(T)
                 for start in range(0, T, min(cfg.N_MB, T)):
                     idx = perm_c[start : start + min(cfg.N_MB, T)]
-                    loss_c = F.mse_loss(critic(t_s[idx]), t_ret[idx])
+                    loss_c = F.mse_loss(critic(t_s[idx], t_F_3d[idx], t_am_3d[idx]), t_ret[idx])
                     opt_c.zero_grad()
                     loss_c.backward()
                     nn.utils.clip_grad_norm_(critic.parameters(), 0.5)
@@ -306,7 +401,7 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
             if vr > best_val:
                 best_val = vr
                 best_state = copy.deepcopy(actor.state_dict())
-            print(f"  [MAPPO-BH] ep {ep:4d}/{episodes} | val@50Mbps: tput={vt:5.2f} Mbps, delay={vd:4.2f} slots, ret={vr:6.2f} | {time.time()-t0:.1f}s")
+            print(f"  [MAPPO-BH] ep {ep:4d}/{episodes} | val@50Mbps: tput={vt:5.2f} Mbps, delay={vd:4.2f} slots, ret={vr:6.2f} | {time.time()-t0:.1f}s", flush=True)
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     torch.save(
@@ -315,12 +410,12 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
             "actor_state_dict": actor.state_dict(),
             "best_actor_state_dict": best_state,
             "critic_state_dict": critic.state_dict(),
-            "config": {"N": cfg.N, "M": cfg.M, "J": cfg.J, "K_MAX": cfg.K_MAX, "D_G": cfg.D_G, "HIDDEN_DIM": cfg.HIDDEN_DIM},
+            "config": {"N": cfg.N, "M": cfg.M, "J": cfg.J, "K_MAX": cfg.K_MAX, "D_G": cfg.D_G_RICH, "HIDDEN_DIM": cfg.HIDDEN_DIM, "RICH_NODE_DIM": cfg.RICH_NODE_DIM},
             "train_returns": history,
         },
         save_path,
     )
-    print(f"  [MAPPO-BH] Saved checkpoint -> {save_path}")
+    print(f"  [MAPPO-BH] Saved checkpoint -> {save_path}", flush=True)
 
 
 def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: int = 43):
@@ -367,7 +462,7 @@ def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: in
     history = []
     for ep in range(1, episodes + 1):
         rate = float(np.random.choice(cfg.EVAL_RATES_MBPS))
-        num_u = int(np.random.randint(170, 235))
+        num_u = int(cfg.EVAL_USERS + np.random.randint(-25, 26))
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         buf_s, buf_F, buf_am, buf_j, buf_y, buf_b, buf_lp, buf_r, buf_v = [], [], [], [], [], [], [], [], []
         ep_ret = 0.0
@@ -485,7 +580,7 @@ def train_qmix(episodes: int, slots: int, save_path: str, bc_data: list, seed: i
     replay, history = [], []
     for ep in range(1, episodes + 1):
         eps = max(0.05, 0.25 * (1.0 - ep / episodes))
-        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(170, 235)))
+        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(cfg.EVAL_USERS + np.random.randint(-25, 26)))
         h = torch.zeros(1, cfg.N, 128)
         ep_ret = 0.0
         for _ in range(slots):
@@ -593,7 +688,7 @@ def train_maddpg(episodes: int, slots: int, save_path: str, bc_data: list, seed:
     replay, history = [], []
     for ep in range(1, episodes + 1):
         noise_scale = max(0.05, 0.25 * (1.0 - ep / episodes))
-        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(170, 235)))
+        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(cfg.EVAL_USERS + np.random.randint(-25, 26)))
         ep_ret = 0.0
         for _ in range(slots):
             am = obs["action_mask"]
@@ -656,9 +751,9 @@ def main():
     parser.add_argument("--algos", nargs="+", default=["mappo", "ppo", "qmix", "maddpg"])
     args = parser.parse_args()
 
-    torch.set_num_threads(2)
+    torch.set_num_threads(4 if len(args.algos) == 1 else 2)
     if "mappo" in args.algos:
-        bc_mappo = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=True, seed=777)
+        bc_mappo = collect_rich_bc_dataset(num_episodes=20, slots=40, seed=777)
         train_mappo(args.episodes, args.slots, os.path.join(args.ckpt_dir, "mappo_bh.pt"), bc_mappo)
     if any(a in args.algos for a in ["ppo", "qmix", "maddpg"]):
         bc_base = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=False, seed=888)
