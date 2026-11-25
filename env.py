@@ -5,6 +5,7 @@ import math
 import numpy as np
 from scipy.special import j1
 import config as cfg
+from coordination import NeighborInterference
 from association import solve_isa, solve_nlb, solve_mea, solve_mmtg
 
 
@@ -20,9 +21,10 @@ def bessel_beam_gain(off_axis_rad: np.ndarray) -> np.ndarray:
 class LEOBHEnv:
     """16-satellite, 144-cell LEO direct-to-cell beam hopping environment."""
 
-    def __init__(self, assoc_method: str = "isa", alpha: float = cfg.ALPHA, seed: int = 0):
+    def __init__(self, assoc_method: str = "isa", alpha: float = cfg.ALPHA, seed: int = 0, cross_satellite: bool = False):
         self.assoc_method = assoc_method.lower()
         self.alpha = alpha
+        self.cross_satellite = cross_satellite
         self.rng = np.random.default_rng(seed)
 
         # Build 16 satellite positions (4x4 grid) and 144 ground cells (16 local 3x3 multibeam clusters)
@@ -147,7 +149,7 @@ class LEOBHEnv:
                 cell_centroids[m] = self.user_pos[self.cell_users_arr[m], :2].mean(axis=0)
 
         # Distance prior Omega_n (N, J, J)
-        self.Omega_prior.fill(0.0)
+        self.Omega_prior = np.zeros_like(self.Omega_prior)
         for n in range(cfg.N):
             for i in range(cfg.J):
                 mi = self.cand_cells[n, i]
@@ -177,7 +179,7 @@ class LEOBHEnv:
             raise ValueError(f"Unknown association method: {self.assoc_method}")
 
         self.cell_sat = np.argmax(self.Z, axis=0).astype(np.int32)  # (M,)
-        self.action_mask.fill(0.0)
+        self.action_mask = np.zeros_like(self.action_mask)
         for n in range(cfg.N):
             for j in range(cfg.J):
                 m = self.cand_cells[n, j]
@@ -225,7 +227,7 @@ class LEOBHEnv:
             self.sat_users_arr.append(np.array(lst, dtype=np.int32))
 
         # Exact normalized intra-satellite beam interference coupling matrix I_mat (N, J, J)
-        self.I_mat.fill(0.0)
+        self.I_mat = np.zeros_like(self.I_mat)
         for n in range(cfg.N):
             for j in range(cfg.J):
                 mj = self.cand_cells[n, j]
@@ -268,6 +270,8 @@ class LEOBHEnv:
         self.rt_buckets[:, 0] = self.rng.poisson(self.base_lam_rt * mult0).astype(np.float64)
         self.bulk_queue[:] = self.rng.poisson(self.base_lam_bulk, size=self.U).astype(np.float64)
 
+        if self.cross_satellite:
+            self.neighbors = NeighborInterference(self)
         return self._get_obs()
 
     def _get_obs(self):
@@ -320,7 +324,10 @@ class LEOBHEnv:
                         F_rich[n, j, 7] = min(float(len(us)) / 5.0, 2.0)
                     F_rich[n, j, 6] = self.v_local[n, j]
 
-        return {
+        if self.cross_satellite:
+            F_rich = self.neighbors.features(self, F_rich)
+
+        obs = {
             "s": s_t,
             "F": F_t,
             "F_rich": F_rich,
@@ -330,6 +337,9 @@ class LEOBHEnv:
             "real_mask": self.real_mask,
             "action_mask": self.action_mask,
         }
+        if self.cross_satellite:
+            obs["E_mat"] = self.neighbors.E_mat
+        return obs
 
     def step(self, beam_sel: np.ndarray, power_ratios: np.ndarray):
         """Execute one time slot.
@@ -402,12 +412,14 @@ class LEOBHEnv:
 
         # Serve RT packets from oldest (index T_TH_R-1) down to newest (index 0)
         served_rt = np.zeros(self.U, dtype=np.float64)
+        served_rt_age = 0.0
         for age_idx in range(cfg.T_TH_R - 1, -1, -1):
             avail = self.rt_buckets[:, age_idx]
             take = np.minimum(avail, rem_cap)
             self.rt_buckets[:, age_idx] -= take
             rem_cap -= take
             served_rt += take
+            served_rt_age += float(take.sum()) * (age_idx + 1)
 
         # Serve BULK packets with remaining capacity
         served_bulk = np.minimum(self.bulk_queue, rem_cap)
@@ -463,6 +475,9 @@ class LEOBHEnv:
             "zeta_t": zeta_t,
             "gamma_t": gamma_t,
             "expired_rt": expired_rt,
+            "served_rt": float(served_rt.sum()),
+            "served_rt_age": served_rt_age,
+            "arrived_rt": float(new_rt.sum()),
             "per_user_mbps": (zeta_t / cfg.T_SLOT) / (self.U * 1e6),
             "r_local": r_local,
         }

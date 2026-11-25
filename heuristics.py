@@ -47,7 +47,7 @@ class QLFBeamHopping:
         N, J = mask.shape
         beam_sel = np.zeros((N, J), dtype=np.float32)
         for n in range(N):
-            avail = np.where(mask[n] > 0.5)[0]
+            avail = np.flatnonzero((mask[n] > 0.5) & (F[n, :, 0] > 1e-6))
             k = min(cfg.K_MAX, len(avail))
             if k == 0:
                 continue
@@ -69,7 +69,7 @@ class USWGPBeamHopping:
         N, J = mask.shape
         beam_sel = np.zeros((N, J), dtype=np.float32)
         for n in range(N):
-            avail = np.where(mask[n] > 0.5)[0]
+            avail = np.flatnonzero((mask[n] > 0.5) & (F[n, :, 0] > 1e-6))
             k = min(cfg.K_MAX, len(avail))
             if k == 0:
                 continue
