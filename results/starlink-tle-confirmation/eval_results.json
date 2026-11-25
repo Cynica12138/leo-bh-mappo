@@ -1,0 +1,1681 @@
+{
+  "settings": {
+    "association": "isa",
+    "orbit_mode": "tle",
+    "user_count": 200,
+    "satellite_spacing_km": 165.0,
+    "cases": 20,
+    "seed_start": 2000,
+    "slots": 120,
+    "warmup_slots": 20,
+    "search_steps": 1
+  },
+  "mappo_single_thread_ms": 0.4653901400160976,
+  "results": {
+    "USWGP-BH": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        34.336590662721235
+      ],
+      "tput_ci": [
+        0.7887567349874706
+      ],
+      "delay_mean": [
+        2.936643265816438
+      ],
+      "delay_ci": [
+        0.23249428585911225
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 36.82687378772411,
+            "queue_age_slots": 2.6132257332824436,
+            "delivered_rt_age_slots": 5.6127290324488675,
+            "rt_expired_pct": 2.091169783617061,
+            "decision_ms": 0.12548124166666666
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 29.55032284562794,
+            "queue_age_slots": 3.804180107172829,
+            "delivered_rt_age_slots": 9.194484900572519,
+            "rt_expired_pct": 8.247538727176495,
+            "decision_ms": 0.12628408333333332
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 34.70482353476532,
+            "queue_age_slots": 2.6992009327309696,
+            "delivered_rt_age_slots": 6.810413351812389,
+            "rt_expired_pct": 4.349825220278644,
+            "decision_ms": 0.125911475
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 33.561141081006866,
+            "queue_age_slots": 3.1263982787054854,
+            "delivered_rt_age_slots": 6.72229991897301,
+            "rt_expired_pct": 2.817730436414553,
+            "decision_ms": 0.12166008333333334
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 33.91272963603689,
+            "queue_age_slots": 3.6332236334868977,
+            "delivered_rt_age_slots": 8.319435007499758,
+            "rt_expired_pct": 12.894636744954617,
+            "decision_ms": 0.12251115
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 33.81639376518034,
+            "queue_age_slots": 3.5525230846005105,
+            "delivered_rt_age_slots": 6.4681119626879475,
+            "rt_expired_pct": 8.77210545286646,
+            "decision_ms": 0.123574625
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 33.1248175670385,
+            "queue_age_slots": 3.0898762643205697,
+            "delivered_rt_age_slots": 6.93173926490133,
+            "rt_expired_pct": 7.364791976500079,
+            "decision_ms": 0.11940696666666666
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 34.90999166555468,
+            "queue_age_slots": 3.255191806460626,
+            "delivered_rt_age_slots": 7.723722163325999,
+            "rt_expired_pct": 5.685942127340097,
+            "decision_ms": 0.12246151666666666
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 36.80737927210697,
+            "queue_age_slots": 2.733943205210232,
+            "delivered_rt_age_slots": 7.2698164708789275,
+            "rt_expired_pct": 6.847925784788338,
+            "decision_ms": 0.12358193333333334
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 33.29885394174602,
+            "queue_age_slots": 3.539665314636247,
+            "delivered_rt_age_slots": 8.807308567643117,
+            "rt_expired_pct": 5.59591613486063,
+            "decision_ms": 0.12099271666666667
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 32.16552456554687,
+            "queue_age_slots": 2.541139100511626,
+            "delivered_rt_age_slots": 5.3755605824392525,
+            "rt_expired_pct": 0.7602242552206809,
+            "decision_ms": 0.12366008333333332
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 36.06467084660942,
+            "queue_age_slots": 2.312596047913241,
+            "delivered_rt_age_slots": 5.116455907850345,
+            "rt_expired_pct": 1.6633693770747737,
+            "decision_ms": 0.12430278333333335
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 36.64451617377739,
+            "queue_age_slots": 2.0602168624189043,
+            "delivered_rt_age_slots": 5.358136983806965,
+            "rt_expired_pct": 4.6779082965045164,
+            "decision_ms": 0.125671175
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 34.36795607256302,
+            "queue_age_slots": 2.598405109781558,
+            "delivered_rt_age_slots": 6.2816043765735765,
+            "rt_expired_pct": 3.886843528961285,
+            "decision_ms": 0.14353785
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 33.70833765013261,
+            "queue_age_slots": 2.715906183587634,
+            "delivered_rt_age_slots": 6.1411030629681,
+            "rt_expired_pct": 1.562150557567113,
+            "decision_ms": 0.12068059166666666
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 35.02869450139418,
+            "queue_age_slots": 3.286617849926756,
+            "delivered_rt_age_slots": 7.321550110029232,
+            "rt_expired_pct": 8.52284567661135,
+            "decision_ms": 0.12129549166666667
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 34.90439614118339,
+            "queue_age_slots": 2.4064606177652186,
+            "delivered_rt_age_slots": 5.691400499233972,
+            "rt_expired_pct": 1.9743440163152859,
+            "decision_ms": 0.124048925
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 35.78811090545971,
+            "queue_age_slots": 2.377140742544468,
+            "delivered_rt_age_slots": 5.283892882903241,
+            "rt_expired_pct": 0.5259631552325962,
+            "decision_ms": 0.12056172500000001
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 35.400840468165754,
+            "queue_age_slots": 2.6115175020049666,
+            "delivered_rt_age_slots": 6.22123413069833,
+            "rt_expired_pct": 2.0361827119983134,
+            "decision_ms": 0.12135624166666667
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 32.14543883280477,
+            "queue_age_slots": 3.775436939267573,
+            "delivered_rt_age_slots": 8.991060885540804,
+            "rt_expired_pct": 10.6209027208172,
+            "decision_ms": 0.12311419166666666
+          }
+        ]
+      ]
+    },
+    "USWGP-BH+Swap": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        35.19277889197623
+      ],
+      "tput_ci": [
+        0.7278672018091735
+      ],
+      "delay_mean": [
+        2.8797796124865043
+      ],
+      "delay_ci": [
+        0.2140776197796777
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 37.51471333710336,
+            "queue_age_slots": 2.535016611555986,
+            "delivered_rt_age_slots": 5.4949013011425345,
+            "rt_expired_pct": 0.941851960939624,
+            "decision_ms": 1.7651937833333335
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 30.991091566435276,
+            "queue_age_slots": 3.6734122567287333,
+            "delivered_rt_age_slots": 8.774872786424872,
+            "rt_expired_pct": 7.9093285395726225,
+            "decision_ms": 1.8417493083333334
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 35.52702245998348,
+            "queue_age_slots": 2.6236917836152363,
+            "delivered_rt_age_slots": 6.34018898923551,
+            "rt_expired_pct": 4.324937531610812,
+            "decision_ms": 1.9836569499999999
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 34.44808440287952,
+            "queue_age_slots": 3.093020909539755,
+            "delivered_rt_age_slots": 6.672779837945739,
+            "rt_expired_pct": 2.7009734100404055,
+            "decision_ms": 2.0041791916666667
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 35.08078632735304,
+            "queue_age_slots": 3.4829269182247535,
+            "delivered_rt_age_slots": 7.952672351435071,
+            "rt_expired_pct": 10.828312454426015,
+            "decision_ms": 2.194211533333333
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 34.41880545192328,
+            "queue_age_slots": 3.50548980979939,
+            "delivered_rt_age_slots": 6.253477088099406,
+            "rt_expired_pct": 8.844759929380032,
+            "decision_ms": 1.995179475
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 34.089100179224104,
+            "queue_age_slots": 3.069445219836937,
+            "delivered_rt_age_slots": 6.669079931714686,
+            "rt_expired_pct": 7.478571784778439,
+            "decision_ms": 1.7581361000000002
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 36.23702689061057,
+            "queue_age_slots": 3.1490823984986562,
+            "delivered_rt_age_slots": 7.522062424185203,
+            "rt_expired_pct": 4.708490323668553,
+            "decision_ms": 1.8209107583333333
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 37.36644569861008,
+            "queue_age_slots": 2.731716516440895,
+            "delivered_rt_age_slots": 7.303832705207782,
+            "rt_expired_pct": 7.033092339194335,
+            "decision_ms": 1.6783357749999999
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 34.41697768707136,
+            "queue_age_slots": 3.4298643354031975,
+            "delivered_rt_age_slots": 8.236560209143624,
+            "rt_expired_pct": 5.706057592437854,
+            "decision_ms": 1.7026579833333333
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 33.01180200746311,
+            "queue_age_slots": 2.496163349056061,
+            "delivered_rt_age_slots": 5.164588139293558,
+            "rt_expired_pct": 0.8537834017667464,
+            "decision_ms": 1.7724701
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 37.0340220772158,
+            "queue_age_slots": 2.323342978223282,
+            "delivered_rt_age_slots": 5.030320166173507,
+            "rt_expired_pct": 1.8533915869387285,
+            "decision_ms": 2.04756145
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 37.38313246924671,
+            "queue_age_slots": 2.0541690761103233,
+            "delivered_rt_age_slots": 5.268543461712528,
+            "rt_expired_pct": 4.156212966647018,
+            "decision_ms": 1.7758957666666666
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 34.98088773749278,
+            "queue_age_slots": 2.581588575796141,
+            "delivered_rt_age_slots": 6.186540906586328,
+            "rt_expired_pct": 3.4174897999534686,
+            "decision_ms": 1.7414044416666667
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 34.16468473697496,
+            "queue_age_slots": 2.6584911207255724,
+            "delivered_rt_age_slots": 6.081389796907762,
+            "rt_expired_pct": 1.4546218536643027,
+            "decision_ms": 1.7697069666666665
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 35.8257919872241,
+            "queue_age_slots": 3.2455013120582494,
+            "delivered_rt_age_slots": 7.024890464598074,
+            "rt_expired_pct": 7.171913843306999,
+            "decision_ms": 1.7953115
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 35.367818734162796,
+            "queue_age_slots": 2.4220354539222853,
+            "delivered_rt_age_slots": 5.598938526281504,
+            "rt_expired_pct": 2.028192405059223,
+            "decision_ms": 1.7256482333333334
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 36.64435884960845,
+            "queue_age_slots": 2.309792336689992,
+            "delivered_rt_age_slots": 5.0110498379416395,
+            "rt_expired_pct": 0.4177521125246656,
+            "decision_ms": 1.6403159583333333
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 35.966636004784036,
+            "queue_age_slots": 2.6369564639262912,
+            "delivered_rt_age_slots": 6.23253659492627,
+            "rt_expired_pct": 1.9420884605335205,
+            "decision_ms": 1.6818388916666667
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 33.386389234157704,
+            "queue_age_slots": 3.5738848235783487,
+            "delivered_rt_age_slots": 8.59067048013951,
+            "rt_expired_pct": 9.473470951802922,
+            "decision_ms": 1.8533458500000002
+          }
+        ]
+      ]
+    },
+    "MAPPO-BH": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        34.824140766206064
+      ],
+      "tput_ci": [
+        0.7002373337939248
+      ],
+      "delay_mean": [
+        2.55445804103124
+      ],
+      "delay_ci": [
+        0.19729942468389053
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 36.89339067116345,
+            "queue_age_slots": 2.21108857164272,
+            "delivered_rt_age_slots": 4.8317169086587235,
+            "rt_expired_pct": 0.11523233021278838,
+            "decision_ms": 0.5452892333333332
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 30.967910519027058,
+            "queue_age_slots": 3.1712951496168813,
+            "delivered_rt_age_slots": 7.317944550727058,
+            "rt_expired_pct": 3.379488247346677,
+            "decision_ms": 0.5443880999999999
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 35.1812460163253,
+            "queue_age_slots": 2.4417080957792914,
+            "delivered_rt_age_slots": 5.4249808545694,
+            "rt_expired_pct": 3.1637396393662494,
+            "decision_ms": 0.47896320000000003
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 34.53867409286492,
+            "queue_age_slots": 2.6516624302138325,
+            "delivered_rt_age_slots": 5.1524885433075065,
+            "rt_expired_pct": 1.0448672895800264,
+            "decision_ms": 0.5190944000000001
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 34.28902176201698,
+            "queue_age_slots": 3.2289328251793723,
+            "delivered_rt_age_slots": 7.259413414419398,
+            "rt_expired_pct": 8.877210068535964,
+            "decision_ms": 0.5370886166666667
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 33.471910545461164,
+            "queue_age_slots": 3.1606753552836833,
+            "delivered_rt_age_slots": 5.714961971616003,
+            "rt_expired_pct": 5.728678466508762,
+            "decision_ms": 0.5238923333333333
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 34.04497153568788,
+            "queue_age_slots": 2.7667624713597614,
+            "delivered_rt_age_slots": 5.8581867103792264,
+            "rt_expired_pct": 5.352894351515614,
+            "decision_ms": 0.5268895583333334
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 35.01301099109771,
+            "queue_age_slots": 2.7389379508067857,
+            "delivered_rt_age_slots": 6.3679293952899885,
+            "rt_expired_pct": 2.0573345704105575,
+            "decision_ms": 0.48769064166666665
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 37.363298948913204,
+            "queue_age_slots": 2.343187521170854,
+            "delivered_rt_age_slots": 6.102778438660471,
+            "rt_expired_pct": 2.3095376892704738,
+            "decision_ms": 0.5264343666666667
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 33.785492660823365,
+            "queue_age_slots": 3.174586794842808,
+            "delivered_rt_age_slots": 7.12746474038639,
+            "rt_expired_pct": 3.1435287685512368,
+            "decision_ms": 0.5233364
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 32.37486872839827,
+            "queue_age_slots": 2.2982900106606694,
+            "delivered_rt_age_slots": 3.7800177847625593,
+            "rt_expired_pct": 0.28610773579230614,
+            "decision_ms": 0.47742151666666666
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 36.50035910018071,
+            "queue_age_slots": 1.9997475307883674,
+            "delivered_rt_age_slots": 4.017618697546322,
+            "rt_expired_pct": 0.6416234227846075,
+            "decision_ms": 0.4940351416666667
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 36.7779620805576,
+            "queue_age_slots": 1.9300772195870084,
+            "delivered_rt_age_slots": 4.814456532063198,
+            "rt_expired_pct": 1.7240333475372303,
+            "decision_ms": 0.5222802
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 34.61637877719611,
+            "queue_age_slots": 2.209357302996391,
+            "delivered_rt_age_slots": 5.017344717283238,
+            "rt_expired_pct": 1.6294706125696432,
+            "decision_ms": 0.5830854083333333
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 35.106133533839575,
+            "queue_age_slots": 2.3492199196689443,
+            "delivered_rt_age_slots": 4.803474113477579,
+            "rt_expired_pct": 0.4751227736238705,
+            "decision_ms": 0.5186684
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 34.43919158933733,
+            "queue_age_slots": 2.9032495789851414,
+            "delivered_rt_age_slots": 6.41814443066895,
+            "rt_expired_pct": 5.496784538417517,
+            "decision_ms": 0.5134978583333334
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 35.67742221854903,
+            "queue_age_slots": 2.0839377684372287,
+            "delivered_rt_age_slots": 4.633754480020141,
+            "rt_expired_pct": 0.6045065337869899,
+            "decision_ms": 0.5001201166666667
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 36.275848451688645,
+            "queue_age_slots": 2.0836601704379776,
+            "delivered_rt_age_slots": 3.9589353017180877,
+            "rt_expired_pct": 0.10130116526382761,
+            "decision_ms": 0.5285569
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 35.8092918393242,
+            "queue_age_slots": 2.18004322810983,
+            "delivered_rt_age_slots": 4.559281140044709,
+            "rt_expired_pct": 0.593624371074651,
+            "decision_ms": 0.49474626666666666
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 33.356431261668874,
+            "queue_age_slots": 3.162740925057255,
+            "delivered_rt_age_slots": 7.644234085197926,
+            "rt_expired_pct": 3.254833199191695,
+            "decision_ms": 0.4749104083333333
+          }
+        ]
+      ]
+    },
+    "MAPPO-APG-Local": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        35.87424522037186
+      ],
+      "tput_ci": [
+        0.7138937256432794
+      ],
+      "delay_mean": [
+        2.7277841125150357
+      ],
+      "delay_ci": [
+        0.2128903199483136
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 38.06376283355112,
+            "queue_age_slots": 2.402089110199517,
+            "delivered_rt_age_slots": 4.625335545320661,
+            "rt_expired_pct": 0.5183064397924092,
+            "decision_ms": 0.6271698333333334
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 31.908702927745175,
+            "queue_age_slots": 3.1599168875554624,
+            "delivered_rt_age_slots": 6.037560247989739,
+            "rt_expired_pct": 2.3969231377259894,
+            "decision_ms": 0.61341285
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 35.88697833822104,
+            "queue_age_slots": 2.6954900206647308,
+            "delivered_rt_age_slots": 4.999605773059526,
+            "rt_expired_pct": 2.9878148292697744,
+            "decision_ms": 0.6133705166666668
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 36.82332384943313,
+            "queue_age_slots": 2.501866391919283,
+            "delivered_rt_age_slots": 4.6363662508969545,
+            "rt_expired_pct": 0.8751887545341375,
+            "decision_ms": 0.6117371583333333
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 35.721492853125554,
+            "queue_age_slots": 3.3955530806771423,
+            "delivered_rt_age_slots": 6.517183863262018,
+            "rt_expired_pct": 9.171932501885824,
+            "decision_ms": 0.5916791166666667
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 34.10089186592856,
+            "queue_age_slots": 3.7440757003959897,
+            "delivered_rt_age_slots": 5.214077726612564,
+            "rt_expired_pct": 6.50041641523263,
+            "decision_ms": 0.6369125083333333
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 34.848212290002344,
+            "queue_age_slots": 2.872618987530499,
+            "delivered_rt_age_slots": 4.798324640526055,
+            "rt_expired_pct": 6.003441345190775,
+            "decision_ms": 0.627741725
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 36.50556066940198,
+            "queue_age_slots": 2.857099444077455,
+            "delivered_rt_age_slots": 6.222533626048242,
+            "rt_expired_pct": 0.696856327351852,
+            "decision_ms": 0.5582416666666666
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 37.63458435157351,
+            "queue_age_slots": 2.6309967226266724,
+            "delivered_rt_age_slots": 6.337107960323909,
+            "rt_expired_pct": 4.030295978646625,
+            "decision_ms": 0.606183675
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 34.217154703802464,
+            "queue_age_slots": 3.481042772730709,
+            "delivered_rt_age_slots": 6.790210693446322,
+            "rt_expired_pct": 3.172531061712002,
+            "decision_ms": 0.62239125
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 33.6792223857668,
+            "queue_age_slots": 2.4441050121637677,
+            "delivered_rt_age_slots": 4.166640024264735,
+            "rt_expired_pct": 0.09045923340445519,
+            "decision_ms": 0.5874385083333333
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 37.59590471732106,
+            "queue_age_slots": 2.063945206467493,
+            "delivered_rt_age_slots": 3.3728462814381017,
+            "rt_expired_pct": 0.28890283845309517,
+            "decision_ms": 0.6131604749999999
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 37.85743388733279,
+            "queue_age_slots": 2.06681721637538,
+            "delivered_rt_age_slots": 4.112785294944474,
+            "rt_expired_pct": 1.056740858903997,
+            "decision_ms": 0.6842805666666667
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 36.53151380091524,
+            "queue_age_slots": 2.317418983551559,
+            "delivered_rt_age_slots": 4.554240796140749,
+            "rt_expired_pct": 1.7729663746961728,
+            "decision_ms": 0.646631925
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 35.2051677963836,
+            "queue_age_slots": 2.47809812979888,
+            "delivered_rt_age_slots": 4.860624180564871,
+            "rt_expired_pct": 0.2051766760900434,
+            "decision_ms": 0.6282291333333333
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 35.9494696915735,
+            "queue_age_slots": 3.1284414746655007,
+            "delivered_rt_age_slots": 5.6183253389150885,
+            "rt_expired_pct": 3.584480618355136,
+            "decision_ms": 0.5807201583333333
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 36.20770544237653,
+            "queue_age_slots": 2.3106276391425515,
+            "delivered_rt_age_slots": 4.351327996366958,
+            "rt_expired_pct": 0.4050386128965325,
+            "decision_ms": 0.5915423083333333
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 37.7978102359133,
+            "queue_age_slots": 2.281174751109872,
+            "delivered_rt_age_slots": 3.61562317213791,
+            "rt_expired_pct": 0.024369776913616227,
+            "decision_ms": 0.6165524499999999
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 36.422970177803016,
+            "queue_age_slots": 2.4839121967798983,
+            "delivered_rt_age_slots": 4.677155717330747,
+            "rt_expired_pct": 0.8431855670706067,
+            "decision_ms": 0.58033545
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 34.5270415892667,
+            "queue_age_slots": 3.2403925218683534,
+            "delivered_rt_age_slots": 6.6815691617889845,
+            "rt_expired_pct": 3.549904191295922,
+            "decision_ms": 0.5972371416666667
+          }
+        ]
+      ]
+    },
+    "MAPPO-CoopGNN-0Shot": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        37.95181464888377
+      ],
+      "tput_ci": [
+        0.7259589137746879
+      ],
+      "delay_mean": [
+        2.445804052981806
+      ],
+      "delay_ci": [
+        0.18272565957029915
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 40.289159085037504,
+            "queue_age_slots": 2.0046520383453537,
+            "delivered_rt_age_slots": 3.3223566338218284,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9344934666666667
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 33.7981161528255,
+            "queue_age_slots": 3.2913762930103,
+            "delivered_rt_age_slots": 6.202097078891496,
+            "rt_expired_pct": 0.442238782809613,
+            "decision_ms": 0.9227108166666667
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 37.779023744740336,
+            "queue_age_slots": 2.3418983837168885,
+            "delivered_rt_age_slots": 4.108693819302406,
+            "rt_expired_pct": 0.1812571748853481,
+            "decision_ms": 0.9518840416666666
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 38.499835654858586,
+            "queue_age_slots": 2.4282481909692546,
+            "delivered_rt_age_slots": 4.185408718166543,
+            "rt_expired_pct": 0.5775034655326706,
+            "decision_ms": 0.8551458333333334
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 38.54232058929139,
+            "queue_age_slots": 2.594057708280028,
+            "delivered_rt_age_slots": 5.2385656640294584,
+            "rt_expired_pct": 0.9487782733074693,
+            "decision_ms": 0.9071285083333332
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 36.31436223672504,
+            "queue_age_slots": 3.210926146446335,
+            "delivered_rt_age_slots": 5.168115102301087,
+            "rt_expired_pct": 4.049070480390033,
+            "decision_ms": 0.95388715
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 36.454785291955474,
+            "queue_age_slots": 2.5364570453560344,
+            "delivered_rt_age_slots": 4.545057298364365,
+            "rt_expired_pct": 0.24353863291067085,
+            "decision_ms": 0.9521836833333334
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 38.091020118336594,
+            "queue_age_slots": 2.432227121835392,
+            "delivered_rt_age_slots": 4.233721113789617,
+            "rt_expired_pct": 0.2944700500460134,
+            "decision_ms": 0.9370569666666667
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 40.47924055690392,
+            "queue_age_slots": 2.129713882298636,
+            "delivered_rt_age_slots": 4.347969299309276,
+            "rt_expired_pct": 0.6967499725099957,
+            "decision_ms": 0.9720458666666667
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 36.89450716422712,
+            "queue_age_slots": 3.1771566428722218,
+            "delivered_rt_age_slots": 5.580442390320969,
+            "rt_expired_pct": 1.7317395874308046,
+            "decision_ms": 0.9623354166666667
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 36.092398004642554,
+            "queue_age_slots": 2.2906208882206816,
+            "delivered_rt_age_slots": 2.9097831021049196,
+            "rt_expired_pct": 0.02562459558031539,
+            "decision_ms": 0.9404576416666667
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 40.099645775668144,
+            "queue_age_slots": 1.9763526476869617,
+            "delivered_rt_age_slots": 2.92828928193648,
+            "rt_expired_pct": 0.07598375337363017,
+            "decision_ms": 0.8722042083333333
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 40.16391467112653,
+            "queue_age_slots": 1.788654757813963,
+            "delivered_rt_age_slots": 3.0090955694970773,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9380614583333333
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 38.26727724695818,
+            "queue_age_slots": 2.193003748678083,
+            "delivered_rt_age_slots": 3.9494622777272217,
+            "rt_expired_pct": 0.010947797856798233,
+            "decision_ms": 0.9676603833333333
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 37.67139397475445,
+            "queue_age_slots": 2.3205450025811656,
+            "delivered_rt_age_slots": 3.927857907927234,
+            "rt_expired_pct": 0.3322382640323267,
+            "decision_ms": 0.8926056083333332
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 38.10730424863838,
+            "queue_age_slots": 2.792515235569543,
+            "delivered_rt_age_slots": 4.28927845013802,
+            "rt_expired_pct": 1.9653259609022005,
+            "decision_ms": 0.959427125
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 37.748062317815844,
+            "queue_age_slots": 2.2737338387511263,
+            "delivered_rt_age_slots": 3.905264740006225,
+            "rt_expired_pct": 0.21418187468251743,
+            "decision_ms": 0.9327347083333334
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 39.24554915102076,
+            "queue_age_slots": 2.1358065114593145,
+            "delivered_rt_age_slots": 3.1265116983803405,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9790625333333334
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 37.707011956799455,
+            "queue_age_slots": 2.250152868318353,
+            "delivered_rt_age_slots": 3.688775346173769,
+            "rt_expired_pct": 0.13931969709076192,
+            "decision_ms": 0.9469684083333333
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 36.79136503534965,
+            "queue_age_slots": 2.7479821074264836,
+            "delivered_rt_age_slots": 5.470995694614562,
+            "rt_expired_pct": 0.9993608127159724,
+            "decision_ms": 0.8786162666666667
+          }
+        ]
+      ]
+    },
+    "MAPPO-CoopGNN-NoBC-0Shot": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        38.66906897433996
+      ],
+      "tput_ci": [
+        0.6749863413344909
+      ],
+      "delay_mean": [
+        2.407097538874633
+      ],
+      "delay_ci": [
+        0.17340007307406238
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 40.273626309722324,
+            "queue_age_slots": 2.117805671489544,
+            "delivered_rt_age_slots": 4.247101906759903,
+            "rt_expired_pct": 0.02513542745695618,
+            "decision_ms": 0.9616409166666666
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 34.72188593397393,
+            "queue_age_slots": 2.996519425484642,
+            "delivered_rt_age_slots": 6.460579137574933,
+            "rt_expired_pct": 0.9161655731188172,
+            "decision_ms": 0.9247844000000001
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 38.47044838909053,
+            "queue_age_slots": 2.3662300147091964,
+            "delivered_rt_age_slots": 5.040000328661053,
+            "rt_expired_pct": 0.6084063151198149,
+            "decision_ms": 0.9007052166666667
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 39.49121195290478,
+            "queue_age_slots": 2.372212419829757,
+            "delivered_rt_age_slots": 5.081615589433064,
+            "rt_expired_pct": 0.3293848306349768,
+            "decision_ms": 0.939809
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 38.68198176432843,
+            "queue_age_slots": 2.7398472023021947,
+            "delivered_rt_age_slots": 6.279504811264292,
+            "rt_expired_pct": 1.923883028535759,
+            "decision_ms": 0.9329517583333333
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 36.777269499914475,
+            "queue_age_slots": 3.3506198201423483,
+            "delivered_rt_age_slots": 6.109629161057175,
+            "rt_expired_pct": 4.629581914091977,
+            "decision_ms": 0.9547705
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 37.32957526665759,
+            "queue_age_slots": 2.443358770783816,
+            "delivered_rt_age_slots": 5.507140405370557,
+            "rt_expired_pct": 0.6338752844171349,
+            "decision_ms": 0.93594135
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 38.92687536207009,
+            "queue_age_slots": 2.4499454830549414,
+            "delivered_rt_age_slots": 5.425655537829896,
+            "rt_expired_pct": 0.4315160410843533,
+            "decision_ms": 0.8946721833333333
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 41.10052592316201,
+            "queue_age_slots": 2.152504619387237,
+            "delivered_rt_age_slots": 5.280129352350941,
+            "rt_expired_pct": 0.8713779354990409,
+            "decision_ms": 0.9636864916666666
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 37.52151606497559,
+            "queue_age_slots": 3.0094530801938286,
+            "delivered_rt_age_slots": 6.583351872125614,
+            "rt_expired_pct": 1.8848306982021932,
+            "decision_ms": 0.906147575
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 37.36421874794491,
+            "queue_age_slots": 2.1403109712411723,
+            "delivered_rt_age_slots": 4.17992538189022,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9472298916666667
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 40.433132203632134,
+            "queue_age_slots": 2.0263443271111763,
+            "delivered_rt_age_slots": 4.212266965680697,
+            "rt_expired_pct": 0.04745215947880107,
+            "decision_ms": 1.012485025
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 40.50153449066312,
+            "queue_age_slots": 1.8529907159601817,
+            "delivered_rt_age_slots": 3.9840668225734492,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9614566166666667
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 39.04664777774319,
+            "queue_age_slots": 2.1026033743730745,
+            "delivered_rt_age_slots": 4.414121465928075,
+            "rt_expired_pct": 0.12990896251823367,
+            "decision_ms": 0.9599548333333334
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 38.5441025549162,
+            "queue_age_slots": 2.1156831635272635,
+            "delivered_rt_age_slots": 4.811209853804324,
+            "rt_expired_pct": 0.01262384928057393,
+            "decision_ms": 0.9244051833333333
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 38.728917814036016,
+            "queue_age_slots": 2.736933328994277,
+            "delivered_rt_age_slots": 5.2257031346734335,
+            "rt_expired_pct": 1.7182062658635449,
+            "decision_ms": 0.9542062333333333
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 38.13726461743955,
+            "queue_age_slots": 2.1972164504674683,
+            "delivered_rt_age_slots": 4.815587901312318,
+            "rt_expired_pct": 0.29176312625086515,
+            "decision_ms": 0.9800253666666667
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 40.746503592424425,
+            "queue_age_slots": 2.031520188870205,
+            "delivered_rt_age_slots": 4.088006110039965,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9651940999999999
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 38.68663815347896,
+            "queue_age_slots": 2.239892995849749,
+            "delivered_rt_age_slots": 4.549122022094736,
+            "rt_expired_pct": 0.32419770015901367,
+            "decision_ms": 0.9715705083333332
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 37.897503067720805,
+            "queue_age_slots": 2.6999587537206033,
+            "delivered_rt_age_slots": 6.2941971183306995,
+            "rt_expired_pct": 2.145959714613207,
+            "decision_ms": 1.0191493666666667
+          }
+        ]
+      ]
+    },
+    "TLE-MAPPO-CoopGNN": {
+      "rates": [
+        50.0
+      ],
+      "tput_mean": [
+        38.30020509156431
+      ],
+      "tput_ci": [
+        0.7268447635728432
+      ],
+      "delay_mean": [
+        2.41108406901598
+      ],
+      "delay_ci": [
+        0.2013820119992324
+      ],
+      "cases": [
+        [
+          {
+            "seed": 2000,
+            "throughput_mbps": 40.14889927927686,
+            "queue_age_slots": 1.9977817657645969,
+            "delivered_rt_age_slots": 3.230761205086744,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9719965166666668
+          },
+          {
+            "seed": 2001,
+            "throughput_mbps": 33.750369495445504,
+            "queue_age_slots": 3.2286196993419733,
+            "delivered_rt_age_slots": 5.894211583630948,
+            "rt_expired_pct": 0.7426425606382773,
+            "decision_ms": 0.934438275
+          },
+          {
+            "seed": 2002,
+            "throughput_mbps": 38.19415191011231,
+            "queue_age_slots": 2.2973170759495307,
+            "delivered_rt_age_slots": 3.8695464812697993,
+            "rt_expired_pct": 0.16922887167309075,
+            "decision_ms": 0.8896475333333334
+          },
+          {
+            "seed": 2003,
+            "throughput_mbps": 38.95206055242241,
+            "queue_age_slots": 2.322006374188344,
+            "delivered_rt_age_slots": 3.8945272762484904,
+            "rt_expired_pct": 0.3744831126349254,
+            "decision_ms": 0.96406875
+          },
+          {
+            "seed": 2004,
+            "throughput_mbps": 38.608569297121576,
+            "queue_age_slots": 2.6053100233962914,
+            "delivered_rt_age_slots": 5.253102618804954,
+            "rt_expired_pct": 0.738597664947034,
+            "decision_ms": 0.9692479333333334
+          },
+          {
+            "seed": 2005,
+            "throughput_mbps": 36.47777148911926,
+            "queue_age_slots": 3.5927843268867905,
+            "delivered_rt_age_slots": 4.911599844595126,
+            "rt_expired_pct": 4.686916058013558,
+            "decision_ms": 0.88070385
+          },
+          {
+            "seed": 2006,
+            "throughput_mbps": 36.93836161782499,
+            "queue_age_slots": 2.4606077558476263,
+            "delivered_rt_age_slots": 4.168995646193445,
+            "rt_expired_pct": 0.10687963802391681,
+            "decision_ms": 0.9432673416666667
+          },
+          {
+            "seed": 2007,
+            "throughput_mbps": 38.377321957431434,
+            "queue_age_slots": 2.37138780147077,
+            "delivered_rt_age_slots": 4.108659996695123,
+            "rt_expired_pct": 0.08073270385962464,
+            "decision_ms": 0.9503118
+          },
+          {
+            "seed": 2008,
+            "throughput_mbps": 40.51512394406602,
+            "queue_age_slots": 2.092048711414566,
+            "delivered_rt_age_slots": 4.092354600433372,
+            "rt_expired_pct": 0.6749534118866011,
+            "decision_ms": 0.9500562416666667
+          },
+          {
+            "seed": 2009,
+            "throughput_mbps": 36.88871893351324,
+            "queue_age_slots": 3.1012269041166722,
+            "delivered_rt_age_slots": 5.611239155316716,
+            "rt_expired_pct": 1.385659821058431,
+            "decision_ms": 0.939317025
+          },
+          {
+            "seed": 2010,
+            "throughput_mbps": 36.46159943746685,
+            "queue_age_slots": 2.2265908331203494,
+            "delivered_rt_age_slots": 2.9388922708327563,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9024868666666667
+          },
+          {
+            "seed": 2011,
+            "throughput_mbps": 40.54025938413489,
+            "queue_age_slots": 1.9166327394944367,
+            "delivered_rt_age_slots": 2.733262694231212,
+            "rt_expired_pct": 0.08063071599436973,
+            "decision_ms": 0.9745851
+          },
+          {
+            "seed": 2012,
+            "throughput_mbps": 40.31729416948333,
+            "queue_age_slots": 1.8255872983521975,
+            "delivered_rt_age_slots": 2.7440962677894327,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.9413798833333333
+          },
+          {
+            "seed": 2013,
+            "throughput_mbps": 38.708426264058524,
+            "queue_age_slots": 2.12425663370612,
+            "delivered_rt_age_slots": 3.6232621554023248,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 0.8956447916666667
+          },
+          {
+            "seed": 2014,
+            "throughput_mbps": 38.43533503072979,
+            "queue_age_slots": 2.1793498874914596,
+            "delivered_rt_age_slots": 3.674164197082066,
+            "rt_expired_pct": 0.1198014676477374,
+            "decision_ms": 0.9701899
+          },
+          {
+            "seed": 2015,
+            "throughput_mbps": 38.63424342655936,
+            "queue_age_slots": 2.6397113987427856,
+            "delivered_rt_age_slots": 3.7374425990584546,
+            "rt_expired_pct": 0.6306336456529409,
+            "decision_ms": 0.9490271083333333
+          },
+          {
+            "seed": 2016,
+            "throughput_mbps": 38.11841964309199,
+            "queue_age_slots": 2.247418220209575,
+            "delivered_rt_age_slots": 3.5751386230415894,
+            "rt_expired_pct": 0.17808657091211968,
+            "decision_ms": 0.9325743249999999
+          },
+          {
+            "seed": 2017,
+            "throughput_mbps": 39.65738573762558,
+            "queue_age_slots": 2.040380402138096,
+            "delivered_rt_age_slots": 2.889554718521596,
+            "rt_expired_pct": 0.0,
+            "decision_ms": 1.0112524666666667
+          },
+          {
+            "seed": 2018,
+            "throughput_mbps": 38.787388521811636,
+            "queue_age_slots": 2.199784855270891,
+            "delivered_rt_age_slots": 3.366005687883711,
+            "rt_expired_pct": 0.07677023971088928,
+            "decision_ms": 0.9638646
+          },
+          {
+            "seed": 2019,
+            "throughput_mbps": 37.49240173999061,
+            "queue_age_slots": 2.7528786734165243,
+            "delivered_rt_age_slots": 5.399519435895776,
+            "rt_expired_pct": 0.8908873314409321,
+            "decision_ms": 1.00728615
+          }
+        ]
+      ]
+    }
+  },
+  "paired_differences": {
+    "USWGP-BH vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": -0.48755010348483196,
+          "ci95": [
+            -0.7321357749951813,
+            -0.2429644319744826
+          ]
+        },
+        "queue_age_slots": {
+          "mean": 0.3821852247851977,
+          "ci95": [
+            0.32693356632671233,
+            0.437436883243683
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": 1.2418466625995401,
+          "ci95": [
+            1.0811657039696136,
+            1.4025276212294666
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": 2.5459198781879704,
+          "ci95": [
+            1.7455203907697816,
+            3.346319365606159
+          ]
+        }
+      }
+    ],
+    "USWGP-BH+Swap vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 0.3686381257701571,
+          "ci95": [
+            0.11741131267917493,
+            0.6198649388611392
+          ]
+        },
+        "queue_age_slots": {
+          "mean": 0.3253215714552642,
+          "ci95": [
+            0.27957733497712695,
+            0.37106580793340144
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": 1.0302384594149117,
+          "ci95": [
+            0.8721677339085223,
+            1.188309184921301
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": 2.1632687063452805,
+          "ci95": [
+            1.459794736612314,
+            2.866742676078247
+          ]
+        }
+      }
+    ],
+    "USWGP-BH+Swap vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 0.856188229254989,
+          "ci95": [
+            0.7220826844652368,
+            0.9902937740447413
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.05686365332993346,
+          "ci95": [
+            -0.08473759911498994,
+            -0.02898970754487698
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -0.21160820318462883,
+          "ci95": [
+            -0.290443485352737,
+            -0.13277292101652066
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -0.38265117184269026,
+          "ci95": [
+            -0.6771822767063779,
+            -0.08812006697900265
+          ]
+        }
+      }
+    ],
+    "MAPPO-BH vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 0.48755010348483196,
+          "ci95": [
+            0.2429644319744826,
+            0.7321357749951813
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.3821852247851977,
+          "ci95": [
+            -0.437436883243683,
+            -0.32693356632671233
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -1.2418466625995401,
+          "ci95": [
+            -1.4025276212294666,
+            -1.0811657039696136
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -2.5459198781879704,
+          "ci95": [
+            -3.346319365606159,
+            -1.7455203907697816
+          ]
+        }
+      }
+    ],
+    "MAPPO-APG-Local vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 1.0501044541658018,
+          "ci95": [
+            0.7900037167706838,
+            1.3102051915609199
+          ]
+        },
+        "queue_age_slots": {
+          "mean": 0.17332607148379564,
+          "ci95": [
+            0.1050387014185576,
+            0.2416134415490337
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -0.4307841259709132,
+          "ci95": [
+            -0.6341056592265347,
+            -0.22746259271529165
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -0.09024937909595461,
+          "ci95": [
+            -0.4543035221819587,
+            0.2738047639900495
+          ]
+        }
+      }
+    ],
+    "MAPPO-APG-Local vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 1.5376545576506337,
+          "ci95": [
+            1.2233282979645628,
+            1.8519808173367047
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.20885915330140198,
+          "ci95": [
+            -0.30743605836063687,
+            -0.11028224824216709
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -1.6726307885704537,
+          "ci95": [
+            -1.9140471272536173,
+            -1.43121444988729
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -2.6361692572839246,
+          "ci95": [
+            -3.4897700968726246,
+            -1.7825684176952246
+          ]
+        }
+      }
+    ],
+    "MAPPO-CoopGNN-0Shot vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 3.1276738826777017,
+          "ci95": [
+            2.838149561203135,
+            3.4171982041522684
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.10865398804943419,
+          "ci95": [
+            -0.20031033017441868,
+            -0.016997645924449675
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -1.333369281199699,
+          "ci95": [
+            -1.5762036182387296,
+            -1.0905349441606687
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -1.8525794972641774,
+          "ci95": [
+            -2.7669861278489365,
+            -0.9381728666794181
+          ]
+        }
+      }
+    ],
+    "MAPPO-CoopGNN-0Shot vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 3.6152239861625333,
+          "ci95": [
+            3.2897884355301774,
+            3.940659536794889
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.49083921283463183,
+          "ci95": [
+            -0.6076218425194362,
+            -0.3740565831498275
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -2.5752159437992397,
+          "ci95": [
+            -2.835472965209454,
+            -2.3149589223890255
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -4.398499375452149,
+          "ci95": [
+            -5.848352510256603,
+            -2.948646240647694
+          ]
+        }
+      }
+    ],
+    "MAPPO-CoopGNN-NoBC-0Shot vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 3.844928208133883,
+          "ci95": [
+            3.5325843156566505,
+            4.157272100611115
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.14736050215660634,
+          "ci95": [
+            -0.22872522187781547,
+            -0.06599578243539721
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -0.4108105966020764,
+          "ci95": [
+            -0.6626226818292673,
+            -0.15899851137488552
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -1.6527825147507713,
+          "ci95": [
+            -2.4716383355146645,
+            -0.8339266939868779
+          ]
+        }
+      }
+    ],
+    "MAPPO-CoopGNN-NoBC-0Shot vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 4.332478311618716,
+          "ci95": [
+            3.9449630392242305,
+            4.719993584013201
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.529545726941804,
+          "ci95": [
+            -0.6444524945549204,
+            -0.41463895932868766
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -1.6526572592016169,
+          "ci95": [
+            -1.9386563990999706,
+            -1.3666581193032632
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -4.198702392938742,
+          "ci95": [
+            -5.519408318938345,
+            -2.8779964669391385
+          ]
+        }
+      }
+    ],
+    "TLE-MAPPO-CoopGNN vs MAPPO-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 3.4760643253582395,
+          "ci95": [
+            3.201734095269022,
+            3.750394555447457
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.1433739720152603,
+          "ci95": [
+            -0.24887975507133425,
+            -0.03786818895918638
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -1.5544394876391618,
+          "ci95": [
+            -1.7947819289476143,
+            -1.3140970463307093
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -1.9521507653623118,
+          "ci95": [
+            -2.9158152480565174,
+            -0.9884862826681062
+          ]
+        }
+      }
+    ],
+    "TLE-MAPPO-CoopGNN vs USWGP-BH": [
+      {
+        "rate_mbps": 50.0,
+        "throughput_mbps": {
+          "mean": 3.9636144288430715,
+          "ci95": [
+            3.631577595975145,
+            4.295651261710998
+          ]
+        },
+        "queue_age_slots": {
+          "mean": -0.5255591968004578,
+          "ci95": [
+            -0.6539435861587737,
+            -0.39717480744214195
+          ]
+        },
+        "delivered_rt_age_slots": {
+          "mean": -2.7962861502387026,
+          "ci95": [
+            -3.0452224065143154,
+            -2.54734989396309
+          ]
+        },
+        "rt_expired_pct": {
+          "mean": -4.498070643550283,
+          "ci95": [
+            -5.979356638446695,
+            -3.0167846486538705
+          ]
+        }
+      }
+    ]
+  }
+}

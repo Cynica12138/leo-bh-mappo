@@ -151,3 +151,36 @@ python evaluate.py --test-cases 20 --slots 120 --rates 50 --seed-start 2000 \
   --policies USWGP-BH USWGP-BH+Swap MAPPO-BH MAPPO-APG-Local MAPPO-APG-Neighbor MAPPO-CoopGNN MAPPO-CoopGNN-NoBC MAPPO-CoopGNN+Swap \
   --out-dir results/optimized-confirmation
 ```
+
+## Real Starlink SGP4 Orbital Dynamics (`--orbit tle`)
+
+`orbit.py` integrates real CelesTrak Starlink GP (OMM JSON) ephemerides (`data/starlink_shell_gp.json`, 3,469 operational satellites in the 480–570 km shell, snapshot from 2026-11-25) with `sgp4` orbital propagation, IAU-82 GMST TEME→ECEF rotation, and WGS-84 Earth-curved elevation angles over 144 fixed geographic ground cells (16 regional 3×3 clusters with 25 km contiguous 3 dB footprints around `40.0°N, 116.4°E`). During every episode, the 16 active serving satellites continuously move along their real SGP4 orbits (`~7.27 km/s` ECEF speed), dynamically updating slant ranges and off-axis Bessel beam gains.
+
+```bash
+# Native real-Starlink SGP4 training
+python train.py --orbit tle --algos mappo --episodes 160 --slots 128 --threads 4 \
+  --power-conditioned --coop-power-gnn --difference-reward --analytic-ctde \
+  --critic-warmup 8 --lr-actor 3e-4 --lr-power 2e-3 --apg-epochs 3 \
+  --rt-diff-weight 0.65 --ent-d 0.008 --val-rates 20 35 50 \
+  --ckpt-dir checkpoints/tle-mappo-coop-gnn
+
+# Multi-rate paired evaluation (10-50 Mbps) on real Starlink SGP4 orbits
+python evaluate.py --orbit tle --test-cases 20 --slots 120 --rates 10 20 30 35 40 50 \
+  --ckpt-dir checkpoints/reference \
+  --mappo-variant MAPPO-APG-Local checkpoints/mappo-apg-local/mappo_bh.pt \
+  --mappo-variant MAPPO-APG-Neighbor checkpoints/mappo-apg-neighbor/mappo_bh.pt \
+  --mappo-variant MAPPO-CoopGNN checkpoints/mappo-coop-gnn/mappo_bh.pt \
+  --mappo-variant MAPPO-CoopGNN-NoBC checkpoints/mappo-coop-gnn-nobc/mappo_bh.pt \
+  --out-dir results/starlink-tle-paired
+
+# Held-out confirmation (50 Mbps, seeds 2000-2019) comparing zero-shot vs native TLE-trained checkpoints
+python evaluate.py --orbit tle --test-cases 20 --slots 120 --rates 50 --seed-start 2000 \
+  --ckpt-dir checkpoints/reference \
+  --mappo-variant MAPPO-APG-Local checkpoints/mappo-apg-local/mappo_bh.pt \
+  --mappo-variant MAPPO-CoopGNN-0Shot checkpoints/mappo-coop-gnn/mappo_bh.pt \
+  --mappo-variant MAPPO-CoopGNN-NoBC-0Shot checkpoints/mappo-coop-gnn-nobc/mappo_bh.pt \
+  --mappo-variant TLE-MAPPO-CoopGNN checkpoints/tle-mappo-coop-gnn/mappo_bh.pt \
+  --search-initializers USWGP-BH --search-steps 1 \
+  --policies USWGP-BH USWGP-BH+Swap MAPPO-BH MAPPO-APG-Local MAPPO-CoopGNN-0Shot MAPPO-CoopGNN-NoBC-0Shot TLE-MAPPO-CoopGNN \
+  --out-dir results/starlink-tle-confirmation
+```

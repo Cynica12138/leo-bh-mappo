@@ -225,8 +225,8 @@ def compute_counterfactual_rewards(env: LEOBHEnv, power_ratios: np.ndarray, rt_d
     return r_diff.astype(np.float32)
 
 
-def collect_rich_bc_dataset(num_episodes: int = 20, slots: int = 40, seed: int = 777, cross_satellite: bool = False, search_teacher: bool = False):
-    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed, cross_satellite=cross_satellite)
+def collect_rich_bc_dataset(num_episodes: int = 20, slots: int = 40, seed: int = 777, cross_satellite: bool = False, search_teacher: bool = False, orbit_mode: str = "planar"):
+    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed, cross_satellite=cross_satellite, orbit_mode=orbit_mode)
     data = []
     for ep in range(num_episodes):
         rate = float(cfg.EVAL_RATES_MBPS[ep % len(cfg.EVAL_RATES_MBPS)])
@@ -394,11 +394,12 @@ def train_mappo(
     ent_d_coef: float = 0.003,
     ent_c_coef: float = 0.001,
     val_rates: tuple[float, ...] = (50.0,),
+    orbit_mode: str = "planar",
 ):
     if coop_power_gnn:
         cross_satellite = True
     print(f"\n[MAPPO-BH] BC warm-start ({bc_epochs} ep) + {episodes} episodes RL fine-tuning"
-          f" (power_cond={power_conditioned}, coop_gnn={coop_power_gnn}, diff_rew={difference_reward},"
+          f" (orbit={orbit_mode}, power_cond={power_conditioned}, coop_gnn={coop_power_gnn}, diff_rew={difference_reward},"
           f" analytic_ctde={analytic_ctde}, cross_sat={cross_satellite})...")
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -455,8 +456,8 @@ def train_mappo(
                 opt_bc.step()
 
     # Phase 2: Genuine MAPPO RL fine-tuning with CTDE credit assignment
-    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed, cross_satellite=cross_satellite)
-    val_env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=999, cross_satellite=cross_satellite)
+    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed, cross_satellite=cross_satellite, orbit_mode=orbit_mode)
+    val_env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=999, cross_satellite=cross_satellite, orbit_mode=orbit_mode)
     if analytic_ctde:
         opt_a = torch.optim.Adam(actor.discrete_parameters(), lr=lr_actor)
         opt_pow = torch.optim.Adam(actor.power_parameters(), lr=lr_power)
@@ -1084,6 +1085,8 @@ def main():
     parser.add_argument("--sequence-length", type=int, default=1, help="MAPPO recurrent update length")
     parser.add_argument("--expiry-weight", type=float, default=0.0, help="MAPPO team penalty per normalized RT expiry")
     parser.add_argument("--search-teacher", action="store_true", help="Refine MAPPO demonstration schedules using a beam swap")
+    parser.add_argument("--orbit", type=str, default="planar", choices=["planar", "tle"],
+                        help="Orbital geometry mode: planar (4x4 grid) or tle (real Starlink SGP4 + WGS-84 ECEF)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--threads", type=int, default=2)
     args = parser.parse_args()
@@ -1095,7 +1098,7 @@ def main():
     torch.set_num_threads(args.threads)
     if "mappo" in args.algos:
         bc_mappo = (
-            collect_rich_bc_dataset(num_episodes=20, slots=40, seed=777, cross_satellite=cross_sat, search_teacher=args.search_teacher)
+            collect_rich_bc_dataset(num_episodes=20, slots=40, seed=777, cross_satellite=cross_sat, search_teacher=args.search_teacher, orbit_mode=args.orbit)
             if args.bc_epochs > 0
             else []
         )
@@ -1125,6 +1128,7 @@ def main():
             ent_d_coef=args.ent_d,
             ent_c_coef=args.ent_c,
             val_rates=tuple(args.val_rates),
+            orbit_mode=args.orbit,
         )
     if any(a in args.algos for a in ["ppo", "qmix", "maddpg"]):
         bc_base = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=False, seed=888)

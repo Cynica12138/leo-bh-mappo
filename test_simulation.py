@@ -94,6 +94,33 @@ class SimulationTests(unittest.TestCase):
             np.testing.assert_allclose(lp.numpy(), lp_eval.detach().numpy(), atol=1e-5)
             self.assertTrue(np.all(np.isfinite(compute_counterfactual_rewards(env, p_np))))
 
+    def test_starlink_tle_orbit_propagation_and_feasibility(self):
+        env = LEOBHEnv(cross_satellite=True, orbit_mode="tle", orbit_update_stride=5)
+        obs = env.reset(50, 200, 1234)
+        self.assertEqual(env.sat_pos.shape, (cfg.N, 3))
+        self.assertEqual(env.cell_pos.shape, (cfg.M, 3))
+        # Satellites are in LEO (~480-570 km altitude above WGS-84 ~6371 km)
+        sat_radii_km = np.linalg.norm(env.sat_pos, axis=-1) / 1000.0
+        self.assertTrue(np.all((sat_radii_km > 6750.0) & (sat_radii_km < 7050.0)))
+        # Every cell covered and candidate capacity <= J
+        self.assertTrue(np.all(env.V.sum(axis=1) <= cfg.J))
+        self.assertTrue(np.all(env.V.sum(axis=0) >= 1))
+        sat_pos_0 = env.sat_pos.copy()
+        policy = USWGPBeamHopping()
+        for _ in range(10):
+            b, p = policy.act(obs)
+            obs, _, _ = env.step(b, p)
+        # Real SGP4 motion over 10 slots (20 ms) moves LEO satellites ~145 m
+        disp_m = np.linalg.norm(env.sat_pos - sat_pos_0, axis=-1)
+        self.assertTrue(np.all((disp_m > 100.0) & (disp_m < 200.0)))
+        # SlotService exact agreement holds on WGS-84 ECEF TLE channels too
+        b, p = policy.act(obs)
+        model = SlotService(env)
+        watts = p.reshape(1, -1).astype(float) * cfg.P_TOT_W
+        expected = model.scores(watts, None, 0)[0] * cfg.L_P
+        _, _, info = copy.deepcopy(env).step(b, p)
+        np.testing.assert_allclose(expected, info["zeta_t"], rtol=1e-7)
+
 
 if __name__ == "__main__":
     unittest.main()

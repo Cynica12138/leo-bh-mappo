@@ -21,54 +21,87 @@ def bessel_beam_gain(off_axis_rad: np.ndarray) -> np.ndarray:
 class LEOBHEnv:
     """16-satellite, 144-cell LEO direct-to-cell beam hopping environment."""
 
-    def __init__(self, assoc_method: str = "isa", alpha: float = cfg.ALPHA, seed: int = 0, cross_satellite: bool = False):
+    def __init__(
+        self,
+        assoc_method: str = "isa",
+        alpha: float = cfg.ALPHA,
+        seed: int = 0,
+        cross_satellite: bool = False,
+        orbit_mode: str = "planar",
+        gp_path: str | None = None,
+        orbit_update_stride: int = 10,
+    ):
         self.assoc_method = assoc_method.lower()
         self.alpha = alpha
         self.cross_satellite = cross_satellite
+        self.orbit_mode = orbit_mode.lower()
+        self.orbit_update_stride = orbit_update_stride
         self.rng = np.random.default_rng(seed)
 
-        # Build 16 satellite positions (4x4 grid) and 144 ground cells (16 local 3x3 multibeam clusters)
-        self.cell_pos = np.zeros((cfg.M, 3), dtype=np.float64)
-        self.sat_pos = np.zeros((cfg.N, 3), dtype=np.float64)
-        sx = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
-        sy = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
-        idx_m = 0
-        for ix in range(4):
-            for iy in range(4):
-                n = ix * 4 + iy
-                self.sat_pos[n] = [sx[ix], sy[iy], cfg.H]
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        self.cell_pos[idx_m] = [
-                            sx[ix] + dx * cfg.CELL_SPACING_M,
-                            sy[iy] + dy * cfg.CELL_SPACING_M,
-                            0.0,
-                        ]
-                        idx_m += 1
+        self.Z = None
+        self.action_mask = np.zeros((cfg.N, cfg.J), dtype=np.float32)
+        self.Omega_prior = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
+        self.I_mat = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
+        self.active_sats = []
+        self.active_sat_names = []
+        self.orbit_t_sec = 0.0
 
-        # Precompute geometry & visibility matrix V (N, M) with <= J=14 candidate cells per satellite
-        diff = self.cell_pos[None, :, :] - self.sat_pos[:, None, :]  # (N, M, 3)
-        horiz_dist = np.linalg.norm(diff[:, :, :2], axis=-1)  # (N, M)
-        self.elev_rad = np.arctan2(cfg.H, np.maximum(horiz_dist, 1.0))  # (N, M)
-        min_elev_rad = math.radians(cfg.THETA_MIN_DEG)
+        if self.orbit_mode == "tle":
+            from orbit import DEFAULT_GP_PATH, StarlinkOrbitProvider
 
-        # Visibility: each satellite sees up to J=14 closest cells above minimum elevation
-        self.V = np.zeros((cfg.N, cfg.M), dtype=np.int32)
-        self.cand_cells = np.full((cfg.N, cfg.J), -1, dtype=np.int32)
-        for n in range(cfg.N):
-            eligible = np.where(self.elev_rad[n] >= min_elev_rad)[0]
-            order = eligible[np.argsort(horiz_dist[n, eligible])]
-            chosen = order[: cfg.J]
-            self.V[n, chosen] = 1
-            self.cand_cells[n, : len(chosen)] = chosen
+            self.orbit_provider = StarlinkOrbitProvider(gp_path=gp_path or DEFAULT_GP_PATH)
+            self.cell_pos = self.orbit_provider.cell_pos.copy()
+            self.active_sats, self.active_sat_names, self.sat_pos = (
+                self.orbit_provider.select_overhead_constellation(0.0, cfg.N)
+            )
+            self.elev_rad, self.V = self.orbit_provider.elevation_and_visibility(self.sat_pos, cfg.J)
+            self._build_visibility_tables()
+        elif self.orbit_mode == "planar":
+            self.orbit_provider = None
+            # Build 16 satellite positions (4x4 grid) and 144 ground cells (16 local 3x3 multibeam clusters)
+            self.cell_pos = np.zeros((cfg.M, 3), dtype=np.float64)
+            self.sat_pos = np.zeros((cfg.N, 3), dtype=np.float64)
+            sx = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
+            sy = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
+            idx_m = 0
+            for ix in range(4):
+                for iy in range(4):
+                    n = ix * 4 + iy
+                    self.sat_pos[n] = [sx[ix], sy[iy], cfg.H]
+                    for dx in (-1, 0, 1):
+                        for dy in (-1, 0, 1):
+                            self.cell_pos[idx_m] = [
+                                sx[ix] + dx * cfg.CELL_SPACING_M,
+                                sy[iy] + dy * cfg.CELL_SPACING_M,
+                                0.0,
+                            ]
+                            idx_m += 1
 
-        # Guarantee every cell is visible to at least one satellite
-        for m in range(cfg.M):
-            if self.V[:, m].sum() == 0:
-                nearest_n = int(np.argmin(horiz_dist[:, m]))
-                self.V[nearest_n, m] = 1
+            # Precompute geometry & visibility matrix V (N, M) with <= J=14 candidate cells per satellite
+            diff = self.cell_pos[None, :, :] - self.sat_pos[:, None, :]  # (N, M, 3)
+            horiz_dist = np.linalg.norm(diff[:, :, :2], axis=-1)  # (N, M)
+            self.elev_rad = np.arctan2(cfg.H, np.maximum(horiz_dist, 1.0))  # (N, M)
+            min_elev_rad = math.radians(cfg.THETA_MIN_DEG)
 
-        # Rebuild candidate cell index map chi_n(j) cleanly
+            # Visibility: each satellite sees up to J=14 closest cells above minimum elevation
+            self.V = np.zeros((cfg.N, cfg.M), dtype=np.int32)
+            for n in range(cfg.N):
+                eligible = np.where(self.elev_rad[n] >= min_elev_rad)[0]
+                order = eligible[np.argsort(horiz_dist[n, eligible])]
+                chosen = order[: cfg.J]
+                self.V[n, chosen] = 1
+
+            # Guarantee every cell is visible to at least one satellite
+            for m in range(cfg.M):
+                if self.V[:, m].sum() == 0:
+                    nearest_n = int(np.argmin(horiz_dist[:, m]))
+                    self.V[nearest_n, m] = 1
+            self._build_visibility_tables()
+        else:
+            raise ValueError(f"Unknown orbit_mode: {orbit_mode}")
+
+    def _build_visibility_tables(self):
+        """Build candidate cell index map, overlap degrees, and common-visibility prior from self.V."""
         self.cand_cells = np.full((cfg.N, cfg.J), -1, dtype=np.int32)
         self.real_mask = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
@@ -76,7 +109,6 @@ class LEOBHEnv:
             self.cand_cells[n, : len(cands)] = cands
             self.real_mask[n, : len(cands)] = 1.0
 
-        # Coverage-overlap degree v_cov^m (M,) and local v_j^n (N, J)
         vis_count = self.V.sum(axis=0).astype(np.float32)
         self.v_cov = np.clip((vis_count - 1.0) / (cfg.N - 1.0), 0.0, 1.0)
         self.v_local = np.zeros((cfg.N, cfg.J), dtype=np.float32)
@@ -86,7 +118,6 @@ class LEOBHEnv:
                 if m >= 0:
                     self.v_local[n, j] = (self.V[:, m].sum() - self.V[n, m]) / (cfg.N - 1.0)
 
-        # Common-visibility prior C_n (N, J, J)
         self.C_prior = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
             other = np.delete(self.V, n, axis=0)  # (N-1, M)
@@ -100,21 +131,55 @@ class LEOBHEnv:
                         continue
                     self.C_prior[n, i, j] = np.mean(other[:, mi] * other[:, mj])
 
-        # Precompute cell-to-cell beam gain table: for satellite n pointing at cell m_b, gain toward cell m_u
-        # (Using user-level exact positions at reset for realistic intra/inter-beam interference)
-        self.Z = None
-        self.action_mask = np.zeros((cfg.N, cfg.J), dtype=np.float32)
-        self.Omega_prior = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
-        self.I_mat = np.zeros((cfg.N, cfg.J, cfg.J), dtype=np.float32)
+    def _compute_channel_gains(self):
+        """Compute exact 3D channel gain table H_sq (N, J, U) from current sat_pos, cell_pos, user_pos, and L_sh."""
+        vec_su = self.user_pos[None, :, :] - self.sat_pos[:, None, :]  # (N, U, 3)
+        dist_su = np.linalg.norm(vec_su, axis=-1)  # (N, U)
+        unit_su = vec_su / np.maximum(dist_su[:, :, None], 1.0)  # (N, U, 3)
+        fspl = (4.0 * math.pi * dist_su / cfg.LAMBDA) ** 2
+        base_path_gain = (cfg.G_MAX_T_LIN * cfg.G_R_LIN) / (fspl * self.L_sh)
+
+        H_sq = np.zeros((cfg.N, cfg.J, self.U), dtype=np.float64)
+        for n in range(cfg.N):
+            for j in range(cfg.J):
+                m = self.cand_cells[n, j]
+                if m < 0:
+                    continue
+                vec_sb = self.cell_pos[m] - self.sat_pos[n]
+                unit_sb = vec_sb / np.linalg.norm(vec_sb)
+                cos_ang = np.clip(unit_su[n] @ unit_sb, -1.0, 1.0)
+                off_axis = np.arccos(cos_ang)
+                H_sq[n, j, :] = base_path_gain[n] * bessel_beam_gain(off_axis)
+
+        self.H_sq_base = H_sq
+        if cfg.TIME_VARYING_FADING and cfg.FADING_STD_DB > 0.0:
+            fade_lin = 10.0 ** (self.cell_fade_db[self.user_cell] / 10.0)
+            self.H_sq = self.H_sq_base * fade_lin[None, None, :]
+        else:
+            self.H_sq = self.H_sq_base.copy()
 
     def reset(
         self,
         input_rate_mbps: float | None = None,
         num_users: int | None = None,
         seed: int | None = None,
+        orbit_time_sec: float | None = None,
     ):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
+
+        if self.orbit_mode == "tle":
+            if orbit_time_sec is not None:
+                self.orbit_t_sec = float(orbit_time_sec)
+            elif seed is not None:
+                self.orbit_t_sec = float((int(seed) % 180) * 30.0)
+            else:
+                self.orbit_t_sec = float(int(self.rng.integers(0, 180)) * 30.0)
+            self.active_sats, self.active_sat_names, self.sat_pos = (
+                self.orbit_provider.select_overhead_constellation(self.orbit_t_sec, cfg.N)
+            )
+            self.elev_rad, self.V = self.orbit_provider.elevation_and_visibility(self.sat_pos, cfg.J)
+            self._build_visibility_tables()
 
         if input_rate_mbps is None:
             self.input_rate_mbps = float(self.rng.choice(cfg.EVAL_RATES_MBPS))
@@ -132,21 +197,24 @@ class LEOBHEnv:
         self.user_cell = self.rng.choice(cfg.M, size=self.U, p=hotspot_weights).astype(np.int32)
 
         # User coordinates randomly inside the cell's 3 dB beam footprint radius
-        ang = self.rng.uniform(0.0, 2.0 * math.pi, size=self.U)
-        rad = cfg.CELL_RADIUS_M * np.sqrt(self.rng.uniform(0.0, 1.0, size=self.U))
-        offsets = np.stack([rad * np.cos(ang), rad * np.sin(ang)], axis=-1)
-        self.user_pos = np.zeros((self.U, 3), dtype=np.float64)
-        self.user_pos[:, :2] = self.cell_pos[self.user_cell, :2] + offsets
+        if self.orbit_mode == "tle":
+            self.user_pos = self.orbit_provider.sample_users_on_wgs84(self.user_cell, self.rng)
+        else:
+            ang = self.rng.uniform(0.0, 2.0 * math.pi, size=self.U)
+            rad = cfg.CELL_RADIUS_M * np.sqrt(self.rng.uniform(0.0, 1.0, size=self.U))
+            offsets = np.stack([rad * np.cos(ang), rad * np.sin(ang)], axis=-1)
+            self.user_pos = np.zeros((self.U, 3), dtype=np.float64)
+            self.user_pos[:, :2] = self.cell_pos[self.user_cell, :2] + offsets
 
-        # User centroids per cell for distance prior omega_{ij}^n
-        cell_centroids = self.cell_pos[:, :2].copy()
+        # User centroids per cell for distance prior omega_{ij}^n (works in both planar and 3D ECEF)
+        cell_centroids = self.cell_pos.copy()
         self.cell_users = [[] for _ in range(cfg.M)]
         for u in range(self.U):
             self.cell_users[self.user_cell[u]].append(u)
         self.cell_users_arr = [np.array(lst, dtype=np.int32) for lst in self.cell_users]
         for m in range(cfg.M):
             if len(self.cell_users_arr[m]) > 0:
-                cell_centroids[m] = self.user_pos[self.cell_users_arr[m], :2].mean(axis=0)
+                cell_centroids[m] = self.user_pos[self.cell_users_arr[m]].mean(axis=0)
 
         # Distance prior Omega_n (N, J, J)
         self.Omega_prior = np.zeros_like(self.Omega_prior)
@@ -187,35 +255,12 @@ class LEOBHEnv:
                     self.action_mask[n, j] = 1.0
 
         # Precompute channel gain |h^{n, j, u}|^2 for every satellite n, candidate beam j, user u
-        # Shape: (N, J, U) — only 16 * 14 * 500 = 112k floats (~0.9 MB)!
-        vec_su = self.user_pos[None, :, :] - self.sat_pos[:, None, :]  # (N, U, 3)
-        dist_su = np.linalg.norm(vec_su, axis=-1)  # (N, U)
-        unit_su = vec_su / np.maximum(dist_su[:, :, None], 1.0)  # (N, U, 3)
-
-        # Log-normal shadow fading L_sh (N, U)
         sh_db = self.rng.normal(0.0, cfg.SHADOW_STD_DB, size=(cfg.N, self.U))
-        L_sh = 10.0 ** (sh_db / 10.0)
-        fspl = (4.0 * math.pi * dist_su / cfg.LAMBDA) ** 2  # (N, U)
-        base_path_gain = (cfg.G_MAX_T_LIN * cfg.G_R_LIN) / (fspl * L_sh)  # (N, U)
-
-        self.H_sq = np.zeros((cfg.N, cfg.J, self.U), dtype=np.float64)
-        for n in range(cfg.N):
-            for j in range(cfg.J):
-                m = self.cand_cells[n, j]
-                if m < 0:
-                    continue
-                vec_sb = self.cell_pos[m] - self.sat_pos[n]  # (3,)
-                unit_sb = vec_sb / np.linalg.norm(vec_sb)
-                cos_ang = np.clip(unit_su[n] @ unit_sb, -1.0, 1.0)
-                off_axis = np.arccos(cos_ang)  # (U,)
-                self.H_sq[n, j, :] = base_path_gain[n] * bessel_beam_gain(off_axis)
-
-        self.H_sq_base = self.H_sq.copy()
+        self.L_sh = 10.0 ** (sh_db / 10.0)
         self.cell_fade_db = np.zeros(cfg.M, dtype=np.float64)
         if cfg.TIME_VARYING_FADING and cfg.FADING_STD_DB > 0.0:
             self.cell_fade_db = self.rng.normal(0.0, cfg.FADING_STD_DB, size=cfg.M)
-            fade_lin = 10.0 ** (self.cell_fade_db[self.user_cell] / 10.0)
-            self.H_sq = self.H_sq_base * fade_lin[None, None, :]
+        self._compute_channel_gains()
 
         # Per-satellite associated user lists for local credit assignment
         self.sat_users_arr = []
@@ -462,6 +507,13 @@ class LEOBHEnv:
             sat_bits = float(delivered_bits_u[us].sum())
             sat_delay = float(tau_u_start[us].mean())
             r_local[n] = self.alpha * (sat_bits / sat_zeta_norm) - (1.0 - self.alpha) * (sat_delay / cfg.GAMMA_NORM)
+
+        # Advance real SGP4 orbital dynamics in TLE mode
+        if self.orbit_mode == "tle":
+            self.orbit_t_sec += cfg.T_SLOT
+            if self.orbit_update_stride > 0 and (self.slot_idx % self.orbit_update_stride == 0):
+                self.sat_pos = self.orbit_provider.propagate_active(self.active_sats, self.orbit_t_sec)
+                self._compute_channel_gains()
 
         # Advance AR(1) time-varying fading if enabled
         if cfg.TIME_VARYING_FADING and cfg.FADING_STD_DB > 0.0:

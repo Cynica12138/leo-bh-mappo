@@ -221,6 +221,8 @@ def main():
     parser.add_argument("--search-steps", type=int, default=1)
     parser.add_argument("--policies", nargs="+", default=[], metavar="POLICY",
                         help="Evaluate only the listed policies")
+    parser.add_argument("--orbit", type=str, default="planar", choices=["planar", "tle"],
+                        help="Orbital geometry mode: planar (4x4 grid) or tle (real Starlink SGP4 + WGS-84 ECEF)")
     args = parser.parse_args()
     if args.test_cases < 2 or args.slots < 1 or args.search_steps < 1:
         parser.error("Require at least two test cases and positive slot and search counts")
@@ -253,7 +255,7 @@ def main():
         policies[search_name] = policies[name]
 
     cross_satellite = any(getattr(policy, "cross_satellite", False) for policy in policies.values())
-    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=0, cross_satellite=cross_satellite)
+    env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=0, cross_satellite=cross_satellite, orbit_mode=args.orbit)
     lat_ms = benchmark_mappo_latency(policies["MAPPO-BH"], env)
     print(f"[Latency] MAPPO-BH single-thread 16-sat inference: {lat_ms:.3f} ms/slot (300-slot avg)")
     if args.policies:
@@ -311,6 +313,7 @@ def main():
 
     settings = {
         "association": env.assoc_method,
+        "orbit_mode": args.orbit,
         "user_count": env.U,
         "satellite_spacing_km": cfg.SAT_SPACING_M / 1000,
         "cases": args.test_cases,
