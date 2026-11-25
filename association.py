@@ -178,10 +178,22 @@ def solve_mea(elev_rad: np.ndarray, V: np.ndarray, J: int = cfg.J) -> np.ndarray
     return Z
 
 
-def solve_mmtg(cell_demands: np.ndarray, V: np.ndarray, J: int = cfg.J) -> np.ndarray:
-    """Max-Min Transfer Greedy (MMTG) association."""
+def solve_mmtg(cell_demands: np.ndarray, V: np.ndarray, elev_rad: np.ndarray | None = None, J: int = cfg.J) -> np.ndarray:
+    """Max-Min Transfer Greedy (MMTG) association: start from MEA (or first visible) and greedily transfer from max-load sat."""
     N, M = V.shape
-    assoc = greedy_init(cell_demands, V, J)
+    if elev_rad is not None:
+        Z0 = solve_mea(elev_rad, V, J)
+        assoc = np.argmax(Z0, axis=0).astype(np.int32)
+    else:
+        assoc = np.full(M, -1, dtype=np.int32)
+        counts = np.zeros(N, dtype=np.int32)
+        for m in range(M):
+            cands = np.where((V[:, m] == 1) & (counts < J))[0]
+            if len(cands) == 0:
+                cands = np.where(V[:, m] == 1)[0]
+            assoc[m] = cands[0]
+            counts[cands[0]] += 1
+
     loads = np.zeros(N, dtype=np.float64)
     counts = np.zeros(N, dtype=np.int32)
     for m in range(M):
@@ -191,7 +203,8 @@ def solve_mmtg(cell_demands: np.ndarray, V: np.ndarray, J: int = cfg.J) -> np.nd
     for _ in range(200):
         max_n = int(np.argmax(loads))
         cells_max = np.where(assoc == max_n)[0]
-        best_gain = 0.0
+        # Strictly transfer from the currently most loaded satellite to the lowest-load feasible neighbor
+        best_dst_load = loads[max_n]
         best_move = None
         for m in cells_max:
             dm = cell_demands[m]
@@ -199,9 +212,8 @@ def solve_mmtg(cell_demands: np.ndarray, V: np.ndarray, J: int = cfg.J) -> np.nd
             for dst in cands:
                 if dst == max_n:
                     continue
-                dE = (loads[max_n] - dm) ** 2 + (loads[dst] + dm) ** 2 - loads[max_n] ** 2 - loads[dst] ** 2
-                if dE < best_gain:
-                    best_gain = dE
+                if loads[dst] + dm < loads[max_n] and loads[dst] < best_dst_load:
+                    best_dst_load = loads[dst]
                     best_move = (m, max_n, int(dst))
         if best_move is None:
             break

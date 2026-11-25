@@ -164,7 +164,7 @@ class LEOBHEnv:
         elif self.assoc_method == "mea":
             self.Z = solve_mea(self.elev_rad, self.V, cfg.J)
         elif self.assoc_method == "mmtg":
-            self.Z = solve_mmtg(self.cell_demands, self.V, cfg.J)
+            self.Z = solve_mmtg(self.cell_demands, self.V, self.elev_rad, cfg.J)
         else:
             raise ValueError(f"Unknown association method: {self.assoc_method}")
 
