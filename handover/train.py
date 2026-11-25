@@ -188,7 +188,7 @@ def train_algo(
             "load_var": ep_sum["load_variance"],
         }
 
-        val_interval = episodes if episodes <= 5 else max(1, episodes // 5)
+        val_interval = episodes if episodes <= 5 else (10 if episodes >= 20 else max(1, episodes // 5))
         if ep % val_interval == 0 or ep == episodes:
             val_ret, val_m = evaluate_agent(agent, cfg, spec, seeds=(9001, 9002), duration_s=val_duration_s)
             rec["val_ret"] = val_ret
@@ -205,7 +205,8 @@ def train_algo(
                     f"HO={val_m['total_handovers']:4.0f} PP={val_m['ping_pong_rate']*100:4.1f}% "
                     f"Out={val_m['outage_rate']*100:4.2f}% Drop={val_m['rt_drop_rate']*100:4.1f}% "
                     f"Tput={val_m['effective_tput_mbps']:5.2f} Var={val_m['load_variance']:.3f} | "
-                    f"{time.perf_counter()-t0:.1f}s"
+                    f"{time.perf_counter()-t0:.1f}s",
+                    flush=True,
                 )
         history.append(rec)
 
@@ -214,8 +215,11 @@ def train_algo(
     agent.net.load_state_dict(best_state)
     agent.cvar_blend = 1.0 if agent.use_cvar else 0.0
     agent.save(ckpt_path, extra={"algo_key": algo_key, "best_val_ret": best_val_ret, "history": history})
+    hist_path = os.path.join(save_dir, f"{algo_key}_history.json")
+    with open(hist_path, "w") as hf:
+        json.dump({"algo_key": algo_key, "display": spec["display"], "best_val_ret": best_val_ret, "history": history}, hf, indent=2)
     if verbose:
-        print(f"Saved best checkpoint -> {ckpt_path} (best_val_ret={best_val_ret:.2f})")
+        print(f"Saved best checkpoint -> {ckpt_path} (best_val_ret={best_val_ret:.2f})", flush=True)
     return {"algo_key": algo_key, "ckpt_path": ckpt_path, "best_val_ret": best_val_ret, "history": history}
 
 

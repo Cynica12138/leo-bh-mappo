@@ -1,0 +1,6 @@
+{
+  "wo_traffic": {
+    "best_val_ret": -36.79491731131566,
+    "ckpt_path": "handover/checkpoints_paper/wo_traffic.pt"
+  }
+}

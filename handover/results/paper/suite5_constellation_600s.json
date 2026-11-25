@@ -1,0 +1,1443 @@
+{
+  "suite": "constellation",
+  "seeds": [
+    1001,
+    1002,
+    1003
+  ],
+  "presets": [
+    "tight_45n",
+    "standard_47n",
+    "dense_35n"
+  ],
+  "by_preset": {
+    "tight_45n": {
+      "Max-RVT": {
+        "mean": {
+          "total_handovers": 1800.6666666666667,
+          "ping_pong_rate": 0.2564989753391766,
+          "outage_rate": 0.03013117283950617,
+          "rt_drop_rate": 0.24407531387877315,
+          "rt_delivered_delay_ms": 27.024717350684885,
+          "effective_tput_mbps": 16.532024013303595,
+          "load_variance": 1.4206779661794826,
+          "jain_fairness": 0.48492861832059725,
+          "mean_sat_rho": 1.1431429307215735,
+          "rejected_proactive": 8892.666666666666,
+          "rejected_mandatory": 6833.0,
+          "decision_ms_per_step": 0.21443324894385618
+        },
+        "ci95": {
+          "total_handovers": 63.1101062517812,
+          "ping_pong_rate": 0.006800352506313361,
+          "outage_rate": 0.0040007546400107,
+          "rt_drop_rate": 0.03167390906947579,
+          "rt_delivered_delay_ms": 3.093756939327544,
+          "effective_tput_mbps": 1.3178091155571925,
+          "load_variance": 0.25555704453520967,
+          "jain_fairness": 0.05124500216472516,
+          "mean_sat_rho": 0.022452141128649218,
+          "rejected_proactive": 94.57775730993932,
+          "rejected_mandatory": 600.3820521412457,
+          "decision_ms_per_step": 0.012991610827966366
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1862.0,
+            "ping_pong_rate": 0.2620837808807734,
+            "outage_rate": 0.032928240740740744,
+            "rt_drop_rate": 0.25516814743257243,
+            "rt_delivered_delay_ms": 23.902109891065784,
+            "effective_tput_mbps": 17.852620597679966,
+            "load_variance": 1.172617292673235,
+            "jain_fairness": 0.5331396176741008,
+            "mean_sat_rho": 1.1524330543500865,
+            "rejected_proactive": 8970.0,
+            "rejected_mandatory": 7368.0,
+            "decision_ms_per_step": 0.2276716352450118
+          },
+          {
+            "total_handovers": 1787.0,
+            "ping_pong_rate": 0.2501398992725238,
+            "outage_rate": 0.026157407407407407,
+            "rt_drop_rate": 0.2648188927725296,
+            "rt_delivered_delay_ms": 28.184174412907563,
+            "effective_tput_mbps": 16.091244458338426,
+            "load_variance": 1.6143584793909802,
+            "jain_fairness": 0.443286815346639,
+            "mean_sat_rho": 1.1203613521677473,
+            "rejected_proactive": 8804.0,
+            "rejected_mandatory": 6307.0,
+            "decision_ms_per_step": 0.20721004679217003
+          },
+          {
+            "total_handovers": 1753.0,
+            "ping_pong_rate": 0.2572732458642327,
+            "outage_rate": 0.03130787037037037,
+            "rt_drop_rate": 0.2122389014312174,
+            "rt_delivered_delay_ms": 28.987867748081317,
+            "effective_tput_mbps": 15.65220698389238,
+            "load_variance": 1.4750581264742322,
+            "jain_fairness": 0.478359421941052,
+            "mean_sat_rho": 1.1566343856468864,
+            "rejected_proactive": 8904.0,
+            "rejected_mandatory": 6824.0,
+            "decision_ms_per_step": 0.20841806479438674
+          }
+        ]
+      },
+      "ISA-HO": {
+        "mean": {
+          "total_handovers": 2626.6666666666665,
+          "ping_pong_rate": 0.1578229468830896,
+          "outage_rate": 0.016215277777777776,
+          "rt_drop_rate": 0.2232724154708913,
+          "rt_delivered_delay_ms": 26.174488777018155,
+          "effective_tput_mbps": 17.527720999601748,
+          "load_variance": 1.142795915742785,
+          "jain_fairness": 0.5632177303368445,
+          "mean_sat_rho": 1.193292098484263,
+          "rejected_proactive": 2133.3333333333335,
+          "rejected_mandatory": 3025.0,
+          "decision_ms_per_step": 5.2783005626649055
+        },
+        "ci95": {
+          "total_handovers": 79.56999211037062,
+          "ping_pong_rate": 0.008047378638510874,
+          "outage_rate": 0.004933336743860738,
+          "rt_drop_rate": 0.04206335446891169,
+          "rt_delivered_delay_ms": 2.9834945684167917,
+          "effective_tput_mbps": 0.7662003668505952,
+          "load_variance": 0.12662503875027575,
+          "jain_fairness": 0.031214634343482036,
+          "mean_sat_rho": 0.023463502333728913,
+          "rejected_proactive": 69.87002154795081,
+          "rejected_mandatory": 720.772067531292,
+          "decision_ms_per_step": 0.1359858635004783
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2551.0,
+            "ping_pong_rate": 0.16503332026656214,
+            "outage_rate": 0.020497685185185185,
+            "rt_drop_rate": 0.25419994983188565,
+            "rt_delivered_delay_ms": 23.130221432747106,
+            "effective_tput_mbps": 18.307927030348996,
+            "load_variance": 1.0332973252704232,
+            "jain_fairness": 0.5875939972559169,
+            "mean_sat_rho": 1.2045676813885662,
+            "rejected_proactive": 2198.0,
+            "rejected_mandatory": 3255.0,
+            "decision_ms_per_step": 5.148492509979405
+          },
+          {
+            "total_handovers": 2690.0,
+            "ping_pong_rate": 0.15762081784386617,
+            "outage_rate": 0.011782407407407408,
+            "rt_drop_rate": 0.2335831662108481,
+            "rt_delivered_delay_ms": 27.673719500201983,
+            "effective_tput_mbps": 17.18133138014905,
+            "load_variance": 1.2569490116672077,
+            "jain_fairness": 0.5332744635449939,
+            "mean_sat_rho": 1.169362970534973,
+            "rejected_proactive": 2075.0,
+            "rejected_mandatory": 2305.0,
+            "decision_ms_per_step": 5.300738353374375
+          },
+          {
+            "total_handovers": 2639.0,
+            "ping_pong_rate": 0.15081470253884047,
+            "outage_rate": 0.01636574074074074,
+            "rt_drop_rate": 0.18203413036994026,
+            "rt_delivered_delay_ms": 27.71952539810537,
+            "effective_tput_mbps": 17.093904588307197,
+            "load_variance": 1.1381414102907241,
+            "jain_fairness": 0.5687847302096227,
+            "mean_sat_rho": 1.2059456435292495,
+            "rejected_proactive": 2127.0,
+            "rejected_mandatory": 3515.0,
+            "decision_ms_per_step": 5.385670824640935
+          }
+        ]
+      },
+      "Swap-HO": {
+        "mean": {
+          "total_handovers": 1932.6666666666667,
+          "ping_pong_rate": 0.1782984694188845,
+          "outage_rate": 0.011141975308641977,
+          "rt_drop_rate": 0.20301853279250523,
+          "rt_delivered_delay_ms": 26.330139097642093,
+          "effective_tput_mbps": 17.81044810243628,
+          "load_variance": 1.048816773720622,
+          "jain_fairness": 0.5813632844639831,
+          "mean_sat_rho": 1.1771424513204753,
+          "rejected_proactive": 613.3333333333334,
+          "rejected_mandatory": 3661.3333333333335,
+          "decision_ms_per_step": 0.5165570943548422
+        },
+        "ci95": {
+          "total_handovers": 20.253333333333337,
+          "ping_pong_rate": 0.007413637572291224,
+          "outage_rate": 0.002846194790199732,
+          "rt_drop_rate": 0.049778273989925154,
+          "rt_delivered_delay_ms": 3.1220135936874507,
+          "effective_tput_mbps": 0.8675069275099467,
+          "load_variance": 0.10990141204536365,
+          "jain_fairness": 0.031128031034556112,
+          "mean_sat_rho": 0.021566383294334916,
+          "rejected_proactive": 76.11543630857308,
+          "rejected_mandatory": 497.6294655441715,
+          "decision_ms_per_step": 0.013992375796906443
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1943.0,
+            "ping_pong_rate": 0.18373648996397324,
+            "outage_rate": 0.013969907407407407,
+            "rt_drop_rate": 0.23864452064786532,
+            "rt_delivered_delay_ms": 23.146195935518076,
+            "effective_tput_mbps": 18.686181738263972,
+            "load_variance": 0.9484174928141749,
+            "jain_fairness": 0.5962375053553485,
+            "mean_sat_rho": 1.1755468298492602,
+            "rejected_proactive": 541.0,
+            "rejected_mandatory": 4169.0,
+            "decision_ms_per_step": 0.5307142069068504
+          },
+          {
+            "total_handovers": 1912.0,
+            "ping_pong_rate": 0.17102510460251047,
+            "outage_rate": 0.009155092592592593,
+            "rt_drop_rate": 0.21656038763027086,
+            "rt_delivered_delay_ms": 27.82976690707667,
+            "effective_tput_mbps": 17.26070172846243,
+            "load_variance": 1.142285871952474,
+            "jain_fairness": 0.5496208568911409,
+            "mean_sat_rho": 1.1589322249776068,
+            "rejected_proactive": 625.0,
+            "rejected_mandatory": 3398.0,
+            "decision_ms_per_step": 0.5110837430644702
+          },
+          {
+            "total_handovers": 1943.0,
+            "ping_pong_rate": 0.18013381369016984,
+            "outage_rate": 0.010300925925925925,
+            "rt_drop_rate": 0.15385069009937952,
+            "rt_delivered_delay_ms": 28.01445445033153,
+            "effective_tput_mbps": 17.484460840582436,
+            "load_variance": 1.055746956395217,
+            "jain_fairness": 0.5982314911454601,
+            "mean_sat_rho": 1.1969482991345595,
+            "rejected_proactive": 674.0,
+            "rejected_mandatory": 3417.0,
+            "decision_ms_per_step": 0.5078733330932058
+          }
+        ]
+      },
+      "Cell-RL": {
+        "mean": {
+          "total_handovers": 2168.0,
+          "ping_pong_rate": 0.17598723334260957,
+          "outage_rate": 0.008618827160493827,
+          "rt_drop_rate": 0.20057926103878618,
+          "rt_delivered_delay_ms": 25.95146409700143,
+          "effective_tput_mbps": 17.968101113764806,
+          "load_variance": 1.00441753199967,
+          "jain_fairness": 0.5915255965672638,
+          "mean_sat_rho": 1.1925396099630516,
+          "rejected_proactive": 425.0,
+          "rejected_mandatory": 3443.6666666666665,
+          "decision_ms_per_step": 3.666997335999945
+        },
+        "ci95": {
+          "total_handovers": 102.52754816795989,
+          "ping_pong_rate": 0.014341844789180208,
+          "outage_rate": 0.004782169999166668,
+          "rt_drop_rate": 0.047721143468322604,
+          "rt_delivered_delay_ms": 3.423561849743851,
+          "effective_tput_mbps": 1.0230783684650644,
+          "load_variance": 0.15146849849778607,
+          "jain_fairness": 0.0393977287995243,
+          "mean_sat_rho": 0.015278310413724785,
+          "rejected_proactive": 66.87976475237733,
+          "rejected_mandatory": 804.2214886736394,
+          "decision_ms_per_step": 0.20703988252029432
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2173.0,
+            "ping_pong_rate": 0.19052001840773125,
+            "outage_rate": 0.013402777777777777,
+            "rt_drop_rate": 0.23503962713592752,
+            "rt_delivered_delay_ms": 22.45842094440467,
+            "effective_tput_mbps": 19.011318113308022,
+            "load_variance": 0.864198284784231,
+            "jain_fairness": 0.6260762829510758,
+            "mean_sat_rho": 1.202590202659544,
+            "rejected_proactive": 454.0,
+            "rejected_mandatory": 4263.0,
+            "decision_ms_per_step": 3.654336391336983
+          },
+          {
+            "total_handovers": 2256.0,
+            "ping_pong_rate": 0.1702127659574468,
+            "outage_rate": 0.005393518518518519,
+            "rt_drop_rate": 0.213144511951165,
+            "rt_delivered_delay_ms": 27.743034858278026,
+            "effective_tput_mbps": 17.41244566467393,
+            "load_variance": 1.1308338684044728,
+            "jain_fairness": 0.5564507048071281,
+            "mean_sat_rho": 1.1771930782446682,
+            "rejected_proactive": 464.0,
+            "rejected_mandatory": 3074.0,
+            "decision_ms_per_step": 3.4906956382474164
+          },
+          {
+            "total_handovers": 2075.0,
+            "ping_pong_rate": 0.1672289156626506,
+            "outage_rate": 0.007060185185185185,
+            "rt_drop_rate": 0.15355364402926597,
+            "rt_delivered_delay_ms": 27.652936488321593,
+            "effective_tput_mbps": 17.48053956331248,
+            "load_variance": 1.0182204428103063,
+            "jain_fairness": 0.5920498019435874,
+            "mean_sat_rho": 1.1978355489849426,
+            "rejected_proactive": 357.0,
+            "rejected_mandatory": 2994.0,
+            "decision_ms_per_step": 3.8559599784154366
+          }
+        ]
+      },
+      "MA-HGDQN": {
+        "mean": {
+          "total_handovers": 2174.3333333333335,
+          "ping_pong_rate": 0.1591840586271461,
+          "outage_rate": 0.005513117283950618,
+          "rt_drop_rate": 0.1940858638099852,
+          "rt_delivered_delay_ms": 25.875538038920823,
+          "effective_tput_mbps": 18.235859656595572,
+          "load_variance": 0.9806392476565886,
+          "jain_fairness": 0.6007253122266354,
+          "mean_sat_rho": 1.185064547986605,
+          "rejected_proactive": 369.0,
+          "rejected_mandatory": 2820.3333333333335,
+          "decision_ms_per_step": 6.188126015565811
+        },
+        "ci95": {
+          "total_handovers": 80.50593794525001,
+          "ping_pong_rate": 0.006678033767548027,
+          "outage_rate": 0.0021966918600110357,
+          "rt_drop_rate": 0.04692568372940028,
+          "rt_delivered_delay_ms": 3.274493440076869,
+          "effective_tput_mbps": 0.8834156680610001,
+          "load_variance": 0.14789021072428904,
+          "jain_fairness": 0.030655337689919515,
+          "mean_sat_rho": 0.012065201227100935,
+          "rejected_proactive": 120.73239388554066,
+          "rejected_mandatory": 378.59694264187846,
+          "decision_ms_per_step": 0.23944977178180085
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2205.0,
+            "ping_pong_rate": 0.1523809523809524,
+            "outage_rate": 0.0077546296296296295,
+            "rt_drop_rate": 0.2291693223039899,
+            "rt_delivered_delay_ms": 22.535267641244694,
+            "effective_tput_mbps": 19.13728396264628,
+            "load_variance": 0.8297362667380827,
+            "jain_fairness": 0.6294541683367267,
+            "mean_sat_rho": 1.1827763963972249,
+            "rejected_proactive": 482.0,
+            "rejected_mandatory": 3172.0,
+            "decision_ms_per_step": 6.4135886566509726
+          },
+          {
+            "total_handovers": 2225.0,
+            "ping_pong_rate": 0.16224719101123594,
+            "outage_rate": 0.004398148148148148,
+            "rt_drop_rate": 0.20476601727746213,
+            "rt_delivered_delay_ms": 27.473154676568605,
+            "effective_tput_mbps": 17.790380608891514,
+            "load_variance": 1.0571960620686558,
+            "jain_fairness": 0.5756434537455104,
+            "mean_sat_rho": 1.1757323768410224,
+            "rejected_proactive": 355.0,
+            "rejected_mandatory": 2506.0,
+            "decision_ms_per_step": 5.993845981380825
+          },
+          {
+            "total_handovers": 2093.0,
+            "ping_pong_rate": 0.1629240324892499,
+            "outage_rate": 0.004386574074074074,
+            "rt_drop_rate": 0.1483222518485036,
+            "rt_delivered_delay_ms": 27.618191798949173,
+            "effective_tput_mbps": 17.779914398248927,
+            "load_variance": 1.054985414163027,
+            "jain_fairness": 0.597078314597669,
+            "mean_sat_rho": 1.1966848707215678,
+            "rejected_proactive": 270.0,
+            "rejected_mandatory": 2783.0,
+            "decision_ms_per_step": 6.156943408665636
+          }
+        ]
+      },
+      "TRA-HGDRL": {
+        "mean": {
+          "total_handovers": 2206.6666666666665,
+          "ping_pong_rate": 0.14876838080710605,
+          "outage_rate": 0.004768518518518518,
+          "rt_drop_rate": 0.19595447387096057,
+          "rt_delivered_delay_ms": 25.969542717508915,
+          "effective_tput_mbps": 18.12153745358386,
+          "load_variance": 0.9955473114638366,
+          "jain_fairness": 0.5989681854011213,
+          "mean_sat_rho": 1.1919396885566431,
+          "rejected_proactive": 335.3333333333333,
+          "rejected_mandatory": 2729.0,
+          "decision_ms_per_step": 6.335216020678572
+        },
+        "ci95": {
+          "total_handovers": 46.66190642388191,
+          "ping_pong_rate": 0.02243359308169283,
+          "outage_rate": 0.00282856151518734,
+          "rt_drop_rate": 0.04644107381393321,
+          "rt_delivered_delay_ms": 3.2704672588641386,
+          "effective_tput_mbps": 0.8935160190089666,
+          "load_variance": 0.08978084648525256,
+          "jain_fairness": 0.02371765653835081,
+          "mean_sat_rho": 0.021821259834683145,
+          "rejected_proactive": 96.38161465987403,
+          "rejected_mandatory": 641.7326550311533,
+          "decision_ms_per_step": 0.19456576208544876
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2253.0,
+            "ping_pong_rate": 0.16822015090989792,
+            "outage_rate": 0.00755787037037037,
+            "rt_drop_rate": 0.22813025001976672,
+            "rt_delivered_delay_ms": 22.632353551493818,
+            "effective_tput_mbps": 19.02962553600979,
+            "load_variance": 0.9045064399529008,
+            "jain_fairness": 0.61465539241586,
+            "mean_sat_rho": 1.1918437246761164,
+            "rejected_proactive": 386.0,
+            "rejected_mandatory": 3364.0,
+            "decision_ms_per_step": 6.395356598392634
+          },
+          {
+            "total_handovers": 2193.0,
+            "ping_pong_rate": 0.12859097127222982,
+            "outage_rate": 0.0027314814814814814,
+            "rt_drop_rate": 0.2099965867789024,
+            "rt_delivered_delay_ms": 27.648708137335763,
+            "effective_tput_mbps": 17.59678630624841,
+            "load_variance": 1.0499216189397278,
+            "jain_fairness": 0.5751644749475786,
+            "mean_sat_rho": 1.1727044155438704,
+            "rejected_proactive": 383.0,
+            "rejected_mandatory": 2273.0,
+            "decision_ms_per_step": 6.141286380079691
+          },
+          {
+            "total_handovers": 2174.0,
+            "ping_pong_rate": 0.14949402023919042,
+            "outage_rate": 0.004016203703703704,
+            "rt_drop_rate": 0.14973658481421254,
+            "rt_delivered_delay_ms": 27.627566463697164,
+            "effective_tput_mbps": 17.73820051849338,
+            "load_variance": 1.0322138754988808,
+            "jain_fairness": 0.6070846888399253,
+            "mean_sat_rho": 1.211270925449942,
+            "rejected_proactive": 237.0,
+            "rejected_mandatory": 2550.0,
+            "decision_ms_per_step": 6.469005083563388
+          }
+        ]
+      }
+    },
+    "standard_47n": {
+      "Max-RVT": {
+        "mean": {
+          "total_handovers": 1737.0,
+          "ping_pong_rate": 0.1340364170333148,
+          "outage_rate": 0.0008371913580246913,
+          "rt_drop_rate": 0.2209342946899715,
+          "rt_delivered_delay_ms": 26.71965767034551,
+          "effective_tput_mbps": 17.23116058158595,
+          "load_variance": 1.20952664786079,
+          "jain_fairness": 0.4493707927427475,
+          "mean_sat_rho": 0.9814099273159602,
+          "rejected_proactive": 9282.666666666666,
+          "rejected_mandatory": 1349.0,
+          "decision_ms_per_step": 0.17303837285402957
+        },
+        "ci95": {
+          "total_handovers": 102.99484517845218,
+          "ping_pong_rate": 0.0164048791964145,
+          "outage_rate": 0.0006145038475565384,
+          "rt_drop_rate": 0.025472957257399387,
+          "rt_delivered_delay_ms": 3.225732175708221,
+          "effective_tput_mbps": 1.1913029044538659,
+          "load_variance": 0.16704352611500348,
+          "jain_fairness": 0.028019288843932406,
+          "mean_sat_rho": 0.03135195040145061,
+          "rejected_proactive": 260.4080452759562,
+          "rejected_mandatory": 372.00951457366426,
+          "decision_ms_per_step": 0.001345172989110852
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1735.0,
+            "ping_pong_rate": 0.12910662824207492,
+            "outage_rate": 0.0009606481481481482,
+            "rt_drop_rate": 0.2408782541295636,
+            "rt_delivered_delay_ms": 23.437282339867267,
+            "effective_tput_mbps": 18.420055260773115,
+            "load_variance": 1.0549304143295464,
+            "jain_fairness": 0.47774525417568353,
+            "mean_sat_rho": 0.9747164044725524,
+            "rejected_proactive": 9174.0,
+            "rejected_mandatory": 1382.0,
+            "decision_ms_per_step": 0.1728030884260079
+          },
+          {
+            "total_handovers": 1647.0,
+            "ping_pong_rate": 0.12264723740133576,
+            "outage_rate": 0.00024305555555555555,
+            "rt_drop_rate": 0.22539833338691165,
+            "rt_delivered_delay_ms": 28.14800366961609,
+            "effective_tput_mbps": 16.856229375643586,
+            "load_variance": 1.2246511017231463,
+            "jain_fairness": 0.43214116531453006,
+            "mean_sat_rho": 0.9576641925716037,
+            "rejected_proactive": 9127.0,
+            "rejected_mandatory": 1005.0,
+            "decision_ms_per_step": 0.1719848803622881
+          },
+          {
+            "total_handovers": 1829.0,
+            "ping_pong_rate": 0.15035538545653362,
+            "outage_rate": 0.0013078703703703703,
+            "rt_drop_rate": 0.1965262965534392,
+            "rt_delivered_delay_ms": 28.573687001553168,
+            "effective_tput_mbps": 16.41719710834115,
+            "load_variance": 1.3489984275296774,
+            "jain_fairness": 0.4382259587380289,
+            "mean_sat_rho": 1.0118491849037248,
+            "rejected_proactive": 9547.0,
+            "rejected_mandatory": 1660.0,
+            "decision_ms_per_step": 0.17432714977379268
+          }
+        ]
+      },
+      "ISA-HO": {
+        "mean": {
+          "total_handovers": 3566.6666666666665,
+          "ping_pong_rate": 0.12375114583105441,
+          "outage_rate": 0.00028935185185185184,
+          "rt_drop_rate": 0.2139443466716238,
+          "rt_delivered_delay_ms": 24.834362682587237,
+          "effective_tput_mbps": 18.881729503759463,
+          "load_variance": 0.729280176798159,
+          "jain_fairness": 0.6110199318797892,
+          "mean_sat_rho": 1.0467359589133682,
+          "rejected_proactive": 2034.0,
+          "rejected_mandatory": 622.3333333333334,
+          "decision_ms_per_step": 5.725677408425124
+        },
+        "ci95": {
+          "total_handovers": 339.7502944484048,
+          "ping_pong_rate": 0.020817659049935808,
+          "outage_rate": 0.0005671296296296297,
+          "rt_drop_rate": 0.03721774672016416,
+          "rt_delivered_delay_ms": 3.5740502787093344,
+          "effective_tput_mbps": 1.1727955562346675,
+          "load_variance": 0.12544306257347723,
+          "jain_fairness": 0.024706420981751714,
+          "mean_sat_rho": 0.0393963560764202,
+          "rejected_proactive": 224.7514146785288,
+          "rejected_mandatory": 373.6723993613182,
+          "decision_ms_per_step": 0.10186562042542231
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 3905.0,
+            "ping_pong_rate": 0.14314980793854035,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.24264026024539379,
+            "rt_delivered_delay_ms": 21.1888017714845,
+            "effective_tput_mbps": 20.011301914137565,
+            "load_variance": 0.6041119749542821,
+            "jain_fairness": 0.6361749064768473,
+            "mean_sat_rho": 1.0148886379189697,
+            "rejected_proactive": 1827.0,
+            "rejected_mandatory": 451.0,
+            "decision_ms_per_step": 5.721275410154097
+          },
+          {
+            "total_handovers": 3463.0,
+            "ping_pong_rate": 0.10655501010684378,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.22113970605069846,
+            "rt_delivered_delay_ms": 26.56873093863889,
+            "effective_tput_mbps": 18.659247159400437,
+            "load_variance": 0.7686631795327705,
+            "jain_fairness": 0.5969924526070532,
+            "mean_sat_rho": 1.0414143136041323,
+            "rejected_proactive": 2052.0,
+            "rejected_mandatory": 413.0,
+            "decision_ms_per_step": 5.8178162348485785
+          },
+          {
+            "total_handovers": 3332.0,
+            "ping_pong_rate": 0.12154861944777912,
+            "outage_rate": 0.0008680555555555555,
+            "rt_drop_rate": 0.17805307371877918,
+            "rt_delivered_delay_ms": 26.745555337638322,
+            "effective_tput_mbps": 17.974639437740393,
+            "load_variance": 0.8150653759074243,
+            "jain_fairness": 0.5998924365554671,
+            "mean_sat_rho": 1.083904925217003,
+            "rejected_proactive": 2223.0,
+            "rejected_mandatory": 1003.0,
+            "decision_ms_per_step": 5.637940580272698
+          }
+        ]
+      },
+      "Swap-HO": {
+        "mean": {
+          "total_handovers": 1754.3333333333333,
+          "ping_pong_rate": 0.0009617234083477592,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.19379666846590304,
+          "rt_delivered_delay_ms": 24.684649080786205,
+          "effective_tput_mbps": 19.295414746525854,
+          "load_variance": 0.6537454159773294,
+          "jain_fairness": 0.6055204717783921,
+          "mean_sat_rho": 0.9918629037210868,
+          "rejected_proactive": 318.0,
+          "rejected_mandatory": 7.666666666666667,
+          "decision_ms_per_step": 0.3856595038895547
+        },
+        "ci95": {
+          "total_handovers": 45.78929908953741,
+          "ping_pong_rate": 0.0018849778803616082,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.04697849716783505,
+          "rt_delivered_delay_ms": 3.2363579236157447,
+          "effective_tput_mbps": 0.6718408108895296,
+          "load_variance": 0.0029640324953186174,
+          "jain_fairness": 0.007995343052257516,
+          "mean_sat_rho": 0.021404653905098586,
+          "rejected_proactive": 114.89011097566232,
+          "rejected_mandatory": 6.821000252488226,
+          "decision_ms_per_step": 0.02469252118038692
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1729.0,
+            "ping_pong_rate": 0.0,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.2337704185089978,
+            "rt_delivered_delay_ms": 21.38370020591406,
+            "effective_tput_mbps": 19.970751496310193,
+            "load_variance": 0.653650304933272,
+            "jain_fairness": 0.603224344426031,
+            "mean_sat_rho": 0.989260581206197,
+            "rejected_proactive": 232.0,
+            "rejected_mandatory": 2.0,
+            "decision_ms_per_step": 0.3607155268643207
+          },
+          {
+            "total_handovers": 1733.0,
+            "ping_pong_rate": 0.0028851702250432777,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.19672395629441292,
+            "rt_delivered_delay_ms": 26.42007442287836,
+            "effective_tput_mbps": 19.05985517564841,
+            "load_variance": 0.6511749532138463,
+            "jain_fairness": 0.5998886494626106,
+            "mean_sat_rho": 0.9743835234057346,
+            "rejected_proactive": 292.0,
+            "rejected_mandatory": 7.0,
+            "decision_ms_per_step": 0.3950502046791371
+          },
+          {
+            "total_handovers": 1801.0,
+            "ping_pong_rate": 0.0,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.15089563059429842,
+            "rt_delivered_delay_ms": 26.25017261356619,
+            "effective_tput_mbps": 18.855637567618967,
+            "load_variance": 0.6564109897848698,
+            "jain_fairness": 0.6134484214465347,
+            "mean_sat_rho": 1.011944606551329,
+            "rejected_proactive": 430.0,
+            "rejected_mandatory": 14.0,
+            "decision_ms_per_step": 0.40121278012520634
+          }
+        ]
+      },
+      "Cell-RL": {
+        "mean": {
+          "total_handovers": 2229.6666666666665,
+          "ping_pong_rate": 0.005476359157813421,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.20140623359936272,
+          "rt_delivered_delay_ms": 24.62872399577088,
+          "effective_tput_mbps": 19.19175918749548,
+          "load_variance": 0.7286782318385404,
+          "jain_fairness": 0.5934993299081049,
+          "mean_sat_rho": 1.0181101078126655,
+          "rejected_proactive": 545.0,
+          "rejected_mandatory": 26.333333333333332,
+          "decision_ms_per_step": 3.171172247101721
+        },
+        "ci95": {
+          "total_handovers": 184.42177793790458,
+          "ping_pong_rate": 0.0022436473002371677,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.0495611291483374,
+          "rt_delivered_delay_ms": 3.7462655738376722,
+          "effective_tput_mbps": 1.1141391505214386,
+          "load_variance": 0.09471214356898064,
+          "jain_fairness": 0.023946091001499123,
+          "mean_sat_rho": 0.015447980931815269,
+          "rejected_proactive": 69.69263184392832,
+          "rejected_mandatory": 13.594986003834078,
+          "decision_ms_per_step": 0.10970618828704241
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2385.0,
+            "ping_pong_rate": 0.0033542976939203353,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.23628196075081226,
+            "rt_delivered_delay_ms": 20.806345438894375,
+            "effective_tput_mbps": 20.32824130195418,
+            "load_variance": 0.6609760172735855,
+            "jain_fairness": 0.6088771298343763,
+            "mean_sat_rho": 1.0023820057121493,
+            "rejected_proactive": 584.0,
+            "rejected_mandatory": 38.0,
+            "decision_ms_per_step": 3.0827229965264755
+          },
+          {
+            "total_handovers": 2244.0,
+            "ping_pong_rate": 0.005793226381461676,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.21568511931422724,
+            "rt_delivered_delay_ms": 26.495668255624263,
+            "effective_tput_mbps": 18.649455534806048,
+            "load_variance": 0.8222579425785574,
+            "jain_fairness": 0.5693654746636612,
+            "mean_sat_rho": 1.026885225821974,
+            "rejected_proactive": 577.0,
+            "rejected_mandatory": 14.0,
+            "decision_ms_per_step": 3.155971920132288
+          },
+          {
+            "total_handovers": 2060.0,
+            "ping_pong_rate": 0.007281553398058253,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.15225162073304868,
+            "rt_delivered_delay_ms": 26.584158292793997,
+            "effective_tput_mbps": 18.597580725726214,
+            "load_variance": 0.7028007356634784,
+            "jain_fairness": 0.6022553852262774,
+            "mean_sat_rho": 1.0250630919038735,
+            "rejected_proactive": 474.0,
+            "rejected_mandatory": 27.0,
+            "decision_ms_per_step": 3.2748218246464
+          }
+        ]
+      },
+      "MA-HGDQN": {
+        "mean": {
+          "total_handovers": 1931.0,
+          "ping_pong_rate": 0.0017099439550985092,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.19383894164179463,
+          "rt_delivered_delay_ms": 24.301069700025966,
+          "effective_tput_mbps": 19.657314449204435,
+          "load_variance": 0.6221518378369697,
+          "jain_fairness": 0.6161549453174081,
+          "mean_sat_rho": 0.9879685705729386,
+          "rejected_proactive": 334.3333333333333,
+          "rejected_mandatory": 9.666666666666666,
+          "decision_ms_per_step": 5.5065603650938195
+        },
+        "ci95": {
+          "total_handovers": 72.34320792813472,
+          "ping_pong_rate": 0.002328412875919645,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.047396673388329556,
+          "rt_delivered_delay_ms": 3.737449127713692,
+          "effective_tput_mbps": 1.0624122122827184,
+          "load_variance": 0.060965741292284006,
+          "jain_fairness": 0.01854217157078406,
+          "mean_sat_rho": 0.019175822682472296,
+          "rejected_proactive": 58.760060509763875,
+          "rejected_mandatory": 1.728557523228866,
+          "decision_ms_per_step": 0.3189589876724968
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1977.0,
+            "ping_pong_rate": 0.0005058168942842691,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.23072455469689424,
+            "rt_delivered_delay_ms": 20.488013693328455,
+            "effective_tput_mbps": 20.7411063696845,
+            "load_variance": 0.5652984554892823,
+            "jain_fairness": 0.6293119953223711,
+            "mean_sat_rho": 0.9730003717419601,
+            "rejected_proactive": 342.0,
+            "rejected_mandatory": 8.0,
+            "decision_ms_per_step": 5.194164366597154
+          },
+          {
+            "total_handovers": 1958.0,
+            "ping_pong_rate": 0.0040858018386108275,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.20248658700533642,
+            "rt_delivered_delay_ms": 26.269393241785224,
+            "effective_tput_mbps": 19.13758397070664,
+            "load_variance": 0.6724492210805826,
+            "jain_fairness": 0.5978010061458361,
+            "mean_sat_rho": 0.9845384473021837,
+            "rejected_proactive": 382.0,
+            "rejected_mandatory": 11.0,
+            "decision_ms_per_step": 5.583677440226893
+          },
+          {
+            "total_handovers": 1858.0,
+            "ping_pong_rate": 0.0005382131324004305,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.14830568322315327,
+            "rt_delivered_delay_ms": 26.14580216496423,
+            "effective_tput_mbps": 19.093253007222167,
+            "load_variance": 0.6287078369410444,
+            "jain_fairness": 0.6213518344840171,
+            "mean_sat_rho": 1.0063668926746723,
+            "rejected_proactive": 279.0,
+            "rejected_mandatory": 10.0,
+            "decision_ms_per_step": 5.741839288457413
+          }
+        ]
+      },
+      "TRA-HGDRL": {
+        "mean": {
+          "total_handovers": 1890.3333333333333,
+          "ping_pong_rate": 0.0014027751199607444,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.19708803670810338,
+          "rt_delivered_delay_ms": 24.394805852488812,
+          "effective_tput_mbps": 19.476130883525716,
+          "load_variance": 0.6781209694873542,
+          "jain_fairness": 0.6006260417250716,
+          "mean_sat_rho": 0.9997060722355636,
+          "rejected_proactive": 203.33333333333334,
+          "rejected_mandatory": 10.333333333333334,
+          "decision_ms_per_step": 5.795356331986518
+        },
+        "ci95": {
+          "total_handovers": 25.23592501001521,
+          "ping_pong_rate": 0.0018210401016599284,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.0494285433320347,
+          "rt_delivered_delay_ms": 3.6049172878372,
+          "effective_tput_mbps": 0.9713031526062673,
+          "load_variance": 0.04646537697441462,
+          "jain_fairness": 0.01341398871149563,
+          "mean_sat_rho": 0.005066969180329261,
+          "rejected_proactive": 71.1233682491986,
+          "rejected_mandatory": 3.4571150464577314,
+          "decision_ms_per_step": 0.08708756999876545
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1907.0,
+            "ping_pong_rate": 0.001048767697954903,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.2361988818895822,
+            "rt_delivered_delay_ms": 20.716364238796984,
+            "effective_tput_mbps": 20.464550736495838,
+            "load_variance": 0.6356367758000097,
+            "jain_fairness": 0.6121475879721566,
+            "mean_sat_rho": 0.9959277330190861,
+            "rejected_proactive": 254.0,
+            "rejected_mandatory": 7.0,
+            "decision_ms_per_step": 5.724824771265655
+          },
+          {
+            "total_handovers": 1899.0,
+            "ping_pong_rate": 0.00315955766192733,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.20511334002865952,
+            "rt_delivered_delay_ms": 26.249856523667173,
+            "effective_tput_mbps": 19.045302420671558,
+            "load_variance": 0.7175938265438437,
+            "jain_fairness": 0.5884655637367764,
+            "mean_sat_rho": 0.9985386569681206,
+            "rejected_proactive": 223.0,
+            "rejected_mandatory": 11.0,
+            "decision_ms_per_step": 5.783806541294325
+          },
+          {
+            "total_handovers": 1865.0,
+            "ping_pong_rate": 0.0,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.14995188820606847,
+            "rt_delivered_delay_ms": 26.21819679500227,
+            "effective_tput_mbps": 18.918539493409753,
+            "load_variance": 0.6811323061182091,
+            "jain_fairness": 0.6012649734662819,
+            "mean_sat_rho": 1.0046518267194844,
+            "rejected_proactive": 133.0,
+            "rejected_mandatory": 13.0,
+            "decision_ms_per_step": 5.877437683399573
+          }
+        ]
+      }
+    },
+    "dense_35n": {
+      "Max-RVT": {
+        "mean": {
+          "total_handovers": 1708.0,
+          "ping_pong_rate": 0.12600508378049835,
+          "outage_rate": 0.0006520061728395062,
+          "rt_drop_rate": 0.2167871296381401,
+          "rt_delivered_delay_ms": 26.29170231723823,
+          "effective_tput_mbps": 17.51119004156661,
+          "load_variance": 1.1756594601276762,
+          "jain_fairness": 0.4821773881626403,
+          "mean_sat_rho": 1.0341370084004469,
+          "rejected_proactive": 9102.333333333334,
+          "rejected_mandatory": 871.0,
+          "decision_ms_per_step": 0.16792070276601914
+        },
+        "ci95": {
+          "total_handovers": 25.505115826699026,
+          "ping_pong_rate": 0.03180868036055447,
+          "outage_rate": 0.00027793852516202664,
+          "rt_drop_rate": 0.029516354467000024,
+          "rt_delivered_delay_ms": 3.2595912709731407,
+          "effective_tput_mbps": 1.2004014318608893,
+          "load_variance": 0.21825578966877168,
+          "jain_fairness": 0.05367485557713934,
+          "mean_sat_rho": 0.025978162195502814,
+          "rejected_proactive": 335.3344315422707,
+          "rejected_mandatory": 141.16082742744177,
+          "decision_ms_per_step": 0.009009136635349092
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1682.0,
+            "ping_pong_rate": 0.14387633769322236,
+            "outage_rate": 0.00045138888888888887,
+            "rt_drop_rate": 0.24013259885664326,
+            "rt_delivered_delay_ms": 23.019949591835683,
+            "effective_tput_mbps": 18.66455910984949,
+            "load_variance": 0.9726721505000044,
+            "jain_fairness": 0.5363213299067338,
+            "mean_sat_rho": 1.0537205625424126,
+            "rejected_proactive": 9128.0,
+            "rejected_mandatory": 880.0,
+            "decision_ms_per_step": 0.16159083655414483
+          },
+          {
+            "total_handovers": 1722.0,
+            "ping_pong_rate": 0.140534262485482,
+            "outage_rate": 0.0005787037037037037,
+            "rt_drop_rate": 0.22159454004718943,
+            "rt_delivered_delay_ms": 27.408927498873346,
+            "effective_tput_mbps": 17.291701233285096,
+            "load_variance": 1.197799988658717,
+            "jain_fairness": 0.4622581286512615,
+            "mean_sat_rho": 1.008873259055479,
+            "rejected_proactive": 9385.0,
+            "rejected_mandatory": 991.0,
+            "decision_ms_per_step": 0.1768591083722034
+          },
+          {
+            "total_handovers": 1720.0,
+            "ping_pong_rate": 0.0936046511627907,
+            "outage_rate": 0.000925925925925926,
+            "rt_drop_rate": 0.18863425001058765,
+            "rt_delivered_delay_ms": 28.446229861005648,
+            "effective_tput_mbps": 16.57730978156525,
+            "load_variance": 1.3565062412243079,
+            "jain_fairness": 0.4479527059299256,
+            "mean_sat_rho": 1.0398172036034488,
+            "rejected_proactive": 8794.0,
+            "rejected_mandatory": 742.0,
+            "decision_ms_per_step": 0.16531216337170918
+          }
+        ]
+      },
+      "ISA-HO": {
+        "mean": {
+          "total_handovers": 3523.6666666666665,
+          "ping_pong_rate": 0.14699775628476172,
+          "outage_rate": 5.0154320987654325e-05,
+          "rt_drop_rate": 0.20648362012375876,
+          "rt_delivered_delay_ms": 24.85416808315034,
+          "effective_tput_mbps": 18.893033271219295,
+          "load_variance": 0.7724230234053803,
+          "jain_fairness": 0.6194105742192016,
+          "mean_sat_rho": 1.0990003955908023,
+          "rejected_proactive": 2287.6666666666665,
+          "rejected_mandatory": 794.3333333333334,
+          "decision_ms_per_step": 4.882576255679143
+        },
+        "ci95": {
+          "total_handovers": 76.55996284685038,
+          "ping_pong_rate": 0.011566764978714084,
+          "outage_rate": 3.296080991257608e-05,
+          "rt_drop_rate": 0.04612572901606302,
+          "rt_delivered_delay_ms": 3.621988663150016,
+          "effective_tput_mbps": 1.1753216494706078,
+          "load_variance": 0.12213163186094386,
+          "jain_fairness": 0.04268475047232627,
+          "mean_sat_rho": 0.011007867551638788,
+          "rejected_proactive": 29.188722327486538,
+          "rejected_mandatory": 94.97633202248046,
+          "decision_ms_per_step": 0.02747505119908667
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 3549.0,
+            "ping_pong_rate": 0.13609467455621302,
+            "outage_rate": 4.6296296296296294e-05,
+            "rt_drop_rate": 0.24248204556404734,
+            "rt_delivered_delay_ms": 21.15833096493201,
+            "effective_tput_mbps": 20.087769033547758,
+            "load_variance": 0.6478506259166233,
+            "jain_fairness": 0.6627491596345382,
+            "mean_sat_rho": 1.102821650435155,
+            "rejected_proactive": 2259.0,
+            "rejected_mandatory": 815.0,
+            "decision_ms_per_step": 4.900733935185902
+          },
+          {
+            "total_handovers": 3575.0,
+            "ping_pong_rate": 0.15636363636363637,
+            "outage_rate": 2.3148148148148147e-05,
+            "rt_drop_rate": 0.21474401256301168,
+            "rt_delivered_delay_ms": 26.721741097378374,
+            "effective_tput_mbps": 18.386270318496972,
+            "load_variance": 0.837818194251,
+            "jain_fairness": 0.5939782405344878,
+            "mean_sat_rho": 1.0879423312321415,
+            "rejected_proactive": 2295.0,
+            "rejected_mandatory": 702.0,
+            "decision_ms_per_step": 4.891996798614855
+          },
+          {
+            "total_handovers": 3447.0,
+            "ping_pong_rate": 0.14853495793443575,
+            "outage_rate": 8.101851851851852e-05,
+            "rt_drop_rate": 0.1622248022442173,
+            "rt_delivered_delay_ms": 26.68243218714065,
+            "effective_tput_mbps": 18.20506046161316,
+            "load_variance": 0.8316002500485178,
+            "jain_fairness": 0.601504322488579,
+            "mean_sat_rho": 1.106237205105111,
+            "rejected_proactive": 2309.0,
+            "rejected_mandatory": 866.0,
+            "decision_ms_per_step": 4.854998033236673
+          }
+        ]
+      },
+      "Swap-HO": {
+        "mean": {
+          "total_handovers": 1724.3333333333333,
+          "ping_pong_rate": 0.0003935458480913026,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.18946263123901982,
+          "rt_delivered_delay_ms": 24.537851575890347,
+          "effective_tput_mbps": 19.412081978537962,
+          "load_variance": 0.6308523015449847,
+          "jain_fairness": 0.6350422125379519,
+          "mean_sat_rho": 1.0494581458821715,
+          "rejected_proactive": 420.6666666666667,
+          "rejected_mandatory": 1.3333333333333333,
+          "decision_ms_per_step": 0.2601813111121171
+        },
+        "ci95": {
+          "total_handovers": 50.88875361457032,
+          "ping_pong_rate": 0.0007713498622589532,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.0555164943012514,
+          "rt_delivered_delay_ms": 3.5884399538771348,
+          "effective_tput_mbps": 0.9063301644664559,
+          "load_variance": 0.037439761977339205,
+          "jain_fairness": 0.023521253799562453,
+          "mean_sat_rho": 0.017762403799759883,
+          "rejected_proactive": 45.55096974208611,
+          "rejected_mandatory": 2.6133333333333337,
+          "decision_ms_per_step": 0.028109674464710552
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1776.0,
+            "ping_pong_rate": 0.0,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.23626453646119058,
+            "rt_delivered_delay_ms": 20.877025836655687,
+            "effective_tput_mbps": 20.331936445734744,
+            "load_variance": 0.5929197784574327,
+            "jain_fairness": 0.6590373325112853,
+            "mean_sat_rho": 1.0675315400606018,
+            "rejected_proactive": 375.0,
+            "rejected_mandatory": 0.0,
+            "decision_ms_per_step": 0.28853195493866224
+          },
+          {
+            "total_handovers": 1694.0,
+            "ping_pong_rate": 0.0011806375442739079,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.1937033008154118,
+            "rt_delivered_delay_ms": 26.300034180734283,
+            "effective_tput_mbps": 19.03509530189123,
+            "load_variance": 0.6458824811888203,
+            "jain_fairness": 0.6225737786087719,
+            "mean_sat_rho": 1.039238923068036,
+            "rejected_proactive": 436.0,
+            "rejected_mandatory": 4.0,
+            "decision_ms_per_step": 0.249778428284723
+          },
+          {
+            "total_handovers": 1703.0,
+            "ping_pong_rate": 0.0,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.1384200564404571,
+            "rt_delivered_delay_ms": 26.436494710281078,
+            "effective_tput_mbps": 18.869214187987914,
+            "load_variance": 0.6537546449887011,
+            "jain_fairness": 0.6235155264937985,
+            "mean_sat_rho": 1.0416039745178765,
+            "rejected_proactive": 451.0,
+            "rejected_mandatory": 0.0,
+            "decision_ms_per_step": 0.24223355011296613
+          }
+        ]
+      },
+      "Cell-RL": {
+        "mean": {
+          "total_handovers": 1996.6666666666667,
+          "ping_pong_rate": 0.016234943148879227,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.1958782234417998,
+          "rt_delivered_delay_ms": 24.47266492363337,
+          "effective_tput_mbps": 19.313422292153696,
+          "load_variance": 0.7113727247065743,
+          "jain_fairness": 0.6213473891427316,
+          "mean_sat_rho": 1.0725975590126786,
+          "rejected_proactive": 532.0,
+          "rejected_mandatory": 95.0,
+          "decision_ms_per_step": 2.1386282107333603
+        },
+        "ci95": {
+          "total_handovers": 108.0333635709101,
+          "ping_pong_rate": 0.010390991598259946,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.05208353797091293,
+          "rt_delivered_delay_ms": 3.739546442227978,
+          "effective_tput_mbps": 1.1357750189861269,
+          "load_variance": 0.1059941803593055,
+          "jain_fairness": 0.040082503467000735,
+          "mean_sat_rho": 0.017199256685485734,
+          "rejected_proactive": 100.53481784934014,
+          "rejected_mandatory": 75.56386790876532,
+          "decision_ms_per_step": 0.2709757258608655
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 2030.0,
+            "ping_pong_rate": 0.019704433497536946,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.23794769142120306,
+            "rt_delivered_delay_ms": 20.657115806343167,
+            "effective_tput_mbps": 20.46965936534633,
+            "load_variance": 0.6108074018417832,
+            "jain_fairness": 0.660691137882304,
+            "mean_sat_rho": 1.0899046589644565,
+            "rejected_proactive": 616.0,
+            "rejected_mandatory": 148.0,
+            "decision_ms_per_step": 1.8973870598953606
+          },
+          {
+            "total_handovers": 2071.0,
+            "ping_pong_rate": 0.02317720907774022,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.20296874748070579,
+            "rt_delivered_delay_ms": 26.3380056788431,
+            "effective_tput_mbps": 18.803990210631188,
+            "load_variance": 0.7961295416615387,
+            "jain_fairness": 0.5919960987472895,
+            "mean_sat_rho": 1.0614227021050164,
+            "rejected_proactive": 541.0,
+            "rejected_mandatory": 117.0,
+            "decision_ms_per_step": 2.142228953865318
+          },
+          {
+            "total_handovers": 1889.0,
+            "ping_pong_rate": 0.005823186871360508,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.1467182314234905,
+            "rt_delivered_delay_ms": 26.42287328571384,
+            "effective_tput_mbps": 18.666617300483573,
+            "load_variance": 0.7271812306164014,
+            "jain_fairness": 0.6113549307986014,
+            "mean_sat_rho": 1.0664653159685626,
+            "rejected_proactive": 439.0,
+            "rejected_mandatory": 20.0,
+            "decision_ms_per_step": 2.376268618439402
+          }
+        ]
+      },
+      "MA-HGDQN": {
+        "mean": {
+          "total_handovers": 1928.6666666666667,
+          "ping_pong_rate": 0.002403131829881346,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.19041752675097146,
+          "rt_delivered_delay_ms": 24.27645417166067,
+          "effective_tput_mbps": 19.696160028075713,
+          "load_variance": 0.6093981967598707,
+          "jain_fairness": 0.643992755284298,
+          "mean_sat_rho": 1.0496979707164003,
+          "rejected_proactive": 326.6666666666667,
+          "rejected_mandatory": 11.333333333333334,
+          "decision_ms_per_step": 4.057110207480339
+        },
+        "ci95": {
+          "total_handovers": 32.99818446184241,
+          "ping_pong_rate": 0.002034077762004909,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.052674360169459575,
+          "rt_delivered_delay_ms": 3.6953952200333875,
+          "effective_tput_mbps": 1.0414179155040544,
+          "load_variance": 0.07682221314869493,
+          "jain_fairness": 0.03426556117458876,
+          "mean_sat_rho": 0.015833389615750645,
+          "rejected_proactive": 77.10163797078357,
+          "rejected_mandatory": 10.51440493376164,
+          "decision_ms_per_step": 0.06893981474816167
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1946.0,
+            "ping_pong_rate": 0.0041109969167523125,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.2337003881676129,
+            "rt_delivered_delay_ms": 20.50701255763056,
+            "effective_tput_mbps": 20.750238630255474,
+            "load_variance": 0.5312188160890884,
+            "jain_fairness": 0.67793445340992,
+            "mean_sat_rho": 1.0589468935804855,
+            "rejected_proactive": 365.0,
+            "rejected_mandatory": 19.0,
+            "decision_ms_per_step": 4.116550828330219
+          },
+          {
+            "total_handovers": 1945.0,
+            "ping_pong_rate": 0.002570694087403599,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.1963748218627106,
+            "rt_delivered_delay_ms": 26.07315977076854,
+            "effective_tput_mbps": 19.285917609267635,
+            "load_variance": 0.6534612140593729,
+            "jain_fairness": 0.6197502602325525,
+            "mean_sat_rho": 1.033601023779335,
+            "rejected_proactive": 367.0,
+            "rejected_mandatory": 14.0,
+            "decision_ms_per_step": 3.994807565274338
+          },
+          {
+            "total_handovers": 1895.0,
+            "ping_pong_rate": 0.0005277044854881266,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.14117737022259086,
+            "rt_delivered_delay_ms": 26.249190186582904,
+            "effective_tput_mbps": 19.05232384470403,
+            "load_variance": 0.6435145601311508,
+            "jain_fairness": 0.6342935522104216,
+            "mean_sat_rho": 1.05654599478938,
+            "rejected_proactive": 248.0,
+            "rejected_mandatory": 1.0,
+            "decision_ms_per_step": 4.059972228836462
+          }
+        ]
+      },
+      "TRA-HGDRL": {
+        "mean": {
+          "total_handovers": 1883.6666666666667,
+          "ping_pong_rate": 0.0012374713567515545,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.19482131702347627,
+          "rt_delivered_delay_ms": 24.332265892151025,
+          "effective_tput_mbps": 19.495868983899452,
+          "load_variance": 0.6732220239065262,
+          "jain_fairness": 0.633655247320559,
+          "mean_sat_rho": 1.0635905524053568,
+          "rejected_proactive": 201.33333333333334,
+          "rejected_mandatory": 8.333333333333334,
+          "decision_ms_per_step": 4.103582333846134
+        },
+        "ci95": {
+          "total_handovers": 63.736006917422884,
+          "ping_pong_rate": 0.0003331892189447657,
+          "outage_rate": 0.0,
+          "rt_drop_rate": 0.05221287858632087,
+          "rt_delivered_delay_ms": 3.8034251484617805,
+          "effective_tput_mbps": 1.1615638512817332,
+          "load_variance": 0.09764944824518632,
+          "jain_fairness": 0.03681775985405858,
+          "mean_sat_rho": 0.011553605347695265,
+          "rejected_proactive": 62.29320062771252,
+          "rejected_mandatory": 5.695627952893147,
+          "decision_ms_per_step": 0.06522744253169271
+        },
+        "seeds": [
+          1001,
+          1002,
+          1003
+        ],
+        "cases": [
+          {
+            "total_handovers": 1927.0,
+            "ping_pong_rate": 0.0010378827192527244,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.23608067493692997,
+            "rt_delivered_delay_ms": 20.458015505553604,
+            "effective_tput_mbps": 20.673431573965605,
+            "load_variance": 0.5792461219842701,
+            "jain_fairness": 0.6706692640987156,
+            "mean_sat_rho": 1.0740827877752936,
+            "rejected_proactive": 255.0,
+            "rejected_mandatory": 13.0,
+            "decision_ms_per_step": 4.120159929831668
+          },
+          {
+            "total_handovers": 1904.0,
+            "ping_pong_rate": 0.0015756302521008404,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.203383996097521,
+            "rt_delivered_delay_ms": 26.070577344128726,
+            "effective_tput_mbps": 19.023951418126938,
+            "load_variance": 0.7488951187177961,
+            "jain_fairness": 0.6095757812750354,
+            "mean_sat_rho": 1.0536885683202883,
+            "rejected_proactive": 204.0,
+            "rejected_mandatory": 9.0,
+            "decision_ms_per_step": 4.0394685917029465
+          },
+          {
+            "total_handovers": 1820.0,
+            "ping_pong_rate": 0.001098901098901099,
+            "outage_rate": 0.0,
+            "rt_drop_rate": 0.14499928003597784,
+            "rt_delivered_delay_ms": 26.468204826770744,
+            "effective_tput_mbps": 18.790223959605818,
+            "load_variance": 0.6915248310175122,
+            "jain_fairness": 0.620720696587926,
+            "mean_sat_rho": 1.0630003011204887,
+            "rejected_proactive": 145.0,
+            "rejected_mandatory": 3.0,
+            "decision_ms_per_step": 4.151118480003788
+          }
+        ]
+      }
+    }
+  }
+}
