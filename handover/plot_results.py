@@ -106,6 +106,61 @@ def plot_fig1_convergence(ckpt_dir: str, fig_dir: str) -> None:
     _save_fig(fig, fig_dir, "fig1_training_convergence")
 
 
+def plot_fig1b_reward_curves(ckpt_dir: str, fig_dir: str) -> None:
+    """Dedicated 120-episode training (10-ep moving avg) and validation reward curves."""
+    files = [
+        ("Cell-RL", "cell_rl_history.json", ALGO_COLORS["Cell-RL"], "-"),
+        ("w/o HGAT", "wo_hgat_history.json", ABL_COLORS["w/o HGAT"], "--"),
+        ("w/o Risk", "wo_risk_history.json", ABL_COLORS["w/o Risk"], "--"),
+        ("MA-HGDQN", "ma_hgdqn_history.json", ALGO_COLORS["MA-HGDQN"], "-"),
+        ("TRA-HGDRL", "tra_hgdrl_history.json", ALGO_COLORS["TRA-HGDRL"], "-"),
+    ]
+    loaded = []
+    for label, fname, color, ls in files:
+        p = os.path.join(ckpt_dir, fname)
+        if os.path.exists(p):
+            with open(p) as f:
+                loaded.append((label, json.load(f)["history"], color, ls))
+    if not loaded:
+        return
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12.2, 4.6))
+    win = 10
+    for label, hist, color, ls in loaded:
+        eps = np.array([r["episode"] for r in hist], dtype=np.float64)
+        rets = np.array([r["train_ret"] for r in hist], dtype=np.float64)
+        ma = np.array([rets[max(0, i - win + 1) : i + 1].mean() for i in range(len(rets))])
+        lw = 2.5 if label == "TRA-HGDRL" else 1.7
+        ax1.plot(eps, rets, color=color, alpha=0.14, linewidth=0.9)
+        ax1.plot(eps, ma, label=label, color=color, linestyle=ls, linewidth=lw)
+
+        veps = [r["episode"] for r in hist if "val_ret" in r]
+        vrets = [r["val_ret"] for r in hist if "val_ret" in r]
+        ax2.plot(veps, vrets, label=label, color=color, linestyle=ls, marker="o", markersize=4.5, linewidth=lw)
+
+    # Mark two-stage CVaR annealing phases for TRA-HGDRL (ep 42 warmup end, ep 72 full CVaR)
+    for ax in (ax1, ax2):
+        ax.axvline(42, color="#555555", linestyle=":", linewidth=1.1, alpha=0.8)
+        ax.axvline(72, color="#555555", linestyle=":", linewidth=1.1, alpha=0.8)
+    ax1.text(21, 18, "Stage 1\nRisk-Neutral", ha="center", va="top", fontsize=8, color="#444444")
+    ax1.text(57, 18, "CVaR\nAnneal", ha="center", va="top", fontsize=8, color="#444444")
+    ax1.text(96, 18, "Stage 2\nFull Adaptive CVaR", ha="center", va="top", fontsize=8, color="#444444")
+
+    ax1.set_xlabel("Training Episode")
+    ax1.set_ylabel("Training Episode Return (10-ep MA)")
+    ax1.set_title("(a) Training Reward Curve (240 s Randomized Load)")
+    ax1.legend(frameon=True, loc="lower right")
+
+    ax2.set_xlabel("Training Episode")
+    ax2.set_ylabel("Validation Episode Return (300 s Fixed Seeds)")
+    ax2.set_title("(b) Deterministic Validation Reward Curve")
+    ax2.legend(frameon=True, loc="lower right")
+
+    fig.suptitle("Training & Validation Reward Convergence (120 Episodes, tight_45n)", fontsize=13, fontweight="bold", y=1.01)
+    fig.tight_layout()
+    _save_fig(fig, fig_dir, "fig1b_reward_curves")
+
+
 def plot_fig2_main_comparison(out_dir: str, fig_dir: str) -> dict | None:
     p = os.path.join(out_dir, "suite1_main_600s.json")
     if not os.path.exists(p):
@@ -383,6 +438,7 @@ def main():
 
     fig_dir = os.path.join(args.results_dir, "figures")
     plot_fig1_convergence(args.ckpt_dir, fig_dir)
+    plot_fig1b_reward_curves(args.ckpt_dir, fig_dir)
     d1 = plot_fig2_main_comparison(args.results_dir, fig_dir)
     d2 = plot_fig3_ablation(args.results_dir, fig_dir)
     d3 = plot_fig4_load_drift(args.results_dir, fig_dir)
