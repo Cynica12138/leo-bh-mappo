@@ -9,7 +9,7 @@ from handover.dynamic_env import DynamicLEOHandoverEnv, EnvStepOutput
 
 SAT_FEAT_DIM = 7
 CELL_FEAT_DIM = 7
-COV_EDGE_DIM = 6
+COV_EDGE_DIM = 8
 SERV_EDGE_DIM = 3
 COMP_EDGE_DIM = 2
 
@@ -127,7 +127,7 @@ def build_cell_graph_obs_batch(
         all_cell_feat[:, 2] = env.traffic.cell_rt_frac.astype(np.float32)
         all_cell_feat[:, 3] = env.cell_rt_urg.astype(np.float32)
 
-    # Precompute global edge feature tables (N_act, M, 6) and per-cell service features (M, 3)
+    # Precompute global edge feature tables (N_act, M, 8) and per-cell service features (M, 3)
     cov_table = np.zeros((n_act, m_cnt, COV_EDGE_DIM), dtype=np.float32)
     if n_act > 0:
         cov_table[:, :, 0] = np.clip(snap.rvt_s / 150.0, 0.0, 1.5)
@@ -137,6 +137,19 @@ def build_cell_graph_obs_batch(
         cov_table[:, :, 4] = np.clip(out.links["nominal_rate_bps"] / 350e6, 0.0, 2.0)
         if traffic_aware:
             cov_table[:, :, 5] = np.clip(out.d_nm / 2.5, 0.0, 2.0)
+        # Edge feature 6: ping-pong risk indicator for switching back to recent previous satellite
+        recent_mask = (out.t - env._last_ho_time) <= cfg.ping_pong_window_s
+        pp_sids = np.where(recent_mask, env._last_ho_from_sat, -2)  # (M,)
+        cov_table[:, :, 6] = (snap.active_sat_ids[:, None] == pp_sids[None, :]).astype(np.float32)
+        # Edge feature 7: admission feasibility headroom indicator
+        hard_headroom = (sat_counts < float(cfg.J))[:, None]
+        if traffic_aware:
+            proj_rho = out.sat_rho[:, None] + out.d_nm / float(cfg.K_MAX)
+            cur_rho_cell = np.where(cur_cell_local >= 0, out.sat_rho[np.maximum(cur_cell_local, 0)], 1e9)
+            soft_headroom = (proj_rho <= cfg.rho_max_soft) | (proj_rho < cur_rho_cell[None, :] - 0.10)
+            cov_table[:, :, 7] = (hard_headroom & soft_headroom).astype(np.float32)
+        else:
+            cov_table[:, :, 7] = hard_headroom.astype(np.float32)
 
     serv_cell_feat = np.zeros((m_cnt, SERV_EDGE_DIM), dtype=np.float32)
     serv_cell_feat[:, 0] = np.minimum(trig.dwell_s.astype(np.float32) / 60.0, 2.0)
@@ -224,12 +237,15 @@ def build_cell_graph_obs_batch(
             e_comp[:k_loc, :k_loc, 1] = j_sub * tot_bps_norm[nbr_arr][None, :]
 
         # Dynamic action mask: action 0 = Stay, action 1+c = switch to cand_sats[c]
+        # Exclude dying candidates (RVT <= T_cov_s) whenever healthier candidates exist to prevent instant re-HO/ping-pong
         action_mask = np.zeros(1 + c_max, dtype=np.float32)
         has_other_cand = False
         if n_valid_c > 0:
             other = c_sats_v != cur_local
-            if np.any(other):
-                action_mask[1 + valid_c[other]] = 1.0
+            healthy_other = other & (snap.rvt_s[c_sats_v, cell_id] > cfg.T_cov_s)
+            chosen_other = healthy_other if np.any(healthy_other) else other
+            if np.any(chosen_other):
+                action_mask[1 + valid_c[chosen_other]] = 1.0
                 has_other_cand = True
 
         stay_ok = bool(trig.stay_allowed[cell_id])

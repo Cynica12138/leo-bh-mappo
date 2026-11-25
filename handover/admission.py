@@ -15,8 +15,10 @@ class AdmissionResult:
 
     Z_new: np.ndarray            # (N_act, M) int32 binary strictly feasible association
     new_cell_sat_id: np.ndarray  # (M,) int32 global sat_id, -1 if outage
-    handover_flags: np.ndarray   # (M,) int32 {0, 1} switched to a different satellite
-    outage_flags: np.ndarray     # (M,) int32 {0, 1} unconnected (Z[:, m].sum() == 0)
+    handover_flags: np.ndarray           # (M,) int32 {0, 1} switched to a different satellite
+    outage_flags: np.ndarray             # (M,) int32 {0, 1} unconnected (Z[:, m].sum() == 0)
+    rejected_proactive_flags: np.ndarray # (M,) int32 {0, 1} proactive switch rejected by admission
+    rejected_mandatory_flags: np.ndarray # (M,) int32 {0, 1} mandatory primary choice rejected by admission
     rejected_proactive: int
     rejected_mandatory: int
 
@@ -207,10 +209,11 @@ class UnifiedAdmissionController:
             elif prop >= 0 and prop != cur_local[m]:
                 requests.append(m)
 
-        # Sort requests: mandatory > proactive, then descending RT urgency
+        # Sort requests: mandatory holding a slot first (so departing cells free slots!),
+        # then mandatory currently-outage cells, then proactive; tie-break by descending RT urgency.
         requests.sort(
             key=lambda m: (
-                0 if is_mandatory[m] else 1,
+                0 if (is_mandatory[m] and cur_local[m] >= 0) else (1 if is_mandatory[m] else 2),
                 -float(rt_urgency[m]),
                 -float(d_nm[int(proposed_target_local[m]), m]) if 0 <= int(proposed_target_local[m]) < n_act else 0.0,
             )
@@ -218,6 +221,8 @@ class UnifiedAdmissionController:
 
         rejected_pro = 0
         rejected_mand = 0
+        rejected_pro_flags = np.zeros(m_cnt, dtype=np.int32)
+        rejected_mand_flags = np.zeros(m_cnt, dtype=np.int32)
 
         def _commit_switch(cell_m: int, new_loc: int) -> None:
             old_loc = int(cur_local[cell_m])
@@ -228,7 +233,7 @@ class UnifiedAdmissionController:
             counts[new_loc] += 1
             rho[new_loc] += float(d_nm[new_loc, cell_m]) / k_max
 
-        # Step 3: Process requests sequentially under hard (J) and soft (rho_max) admission rules
+        # Step 3: Process requests sequentially under hard (J) and soft (rho_max / load-improving) admission rules
         for m in requests:
             mand = bool(is_mandatory[m])
             prop = int(proposed_target_local[m])
@@ -236,7 +241,9 @@ class UnifiedAdmissionController:
 
             if 0 <= prop < n_act and prop != old_loc and snap.V_geo[prop, m] == 1:
                 hard_ok = counts[prop] < j_cap
-                soft_ok = (rho[prop] + float(d_nm[prop, m]) / k_max) <= rho_soft
+                new_target_rho = rho[prop] + float(d_nm[prop, m]) / k_max
+                old_source_rho = rho[old_loc] if old_loc >= 0 else 1e9
+                soft_ok = (new_target_rho <= rho_soft) or (new_target_rho < old_source_rho - 0.10)
                 if hard_ok and (mand or soft_ok):
                     _commit_switch(m, prop)
                     continue
@@ -244,10 +251,12 @@ class UnifiedAdmissionController:
             # Rejected primary choice -> fallback
             if not mand:
                 rejected_pro += 1
+                rejected_pro_flags[m] = 1
                 # Proactive request keeps its reserved old_loc cleanly!
                 continue
 
             rejected_mand += 1
+            rejected_mand_flags[m] = 1
             if fallback_rankings is not None and len(fallback_rankings[m]) > 0:
                 cands = [c for c in fallback_rankings[m] if 0 <= c < n_act and c != old_loc and snap.V_geo[c, m] == 1]
             else:
@@ -271,6 +280,21 @@ class UnifiedAdmissionController:
             # Else: if old_loc >= 0 (e.g., RVT <= T_cov still visible), keep old_loc until it actually sets;
             # if old_loc < 0, cell stays in outage (-1).
 
+        # Step 3b (Post-release outage recovery): if earlier disconnected cells failed before later
+        # cells vacated full satellites in the same step, let them claim newly freed visible slots.
+        for m in range(m_cnt):
+            if cur_local[m] >= 0:
+                continue
+            if fallback_rankings is not None and len(fallback_rankings[m]) > 0:
+                cands = [c for c in fallback_rankings[m] if 0 <= c < n_act and snap.V_geo[c, m] == 1]
+            else:
+                vis_c = np.flatnonzero(snap.V_geo[:, m] == 1)
+                cands = [int(c) for c in vis_c[np.argsort(-snap.rvt_s[vis_c, m])]]
+            for c in cands:
+                if counts[c] < j_cap:
+                    _commit_switch(m, c)
+                    break
+
         # Step 4: Assemble Z_new, global sat IDs, handover flags, and outage flags
         new_sat_id = np.full(m_cnt, -1, dtype=np.int32)
         for m in range(m_cnt):
@@ -289,6 +313,8 @@ class UnifiedAdmissionController:
             new_cell_sat_id=new_sat_id,
             handover_flags=handover_flags,
             outage_flags=outage_flags,
+            rejected_proactive_flags=rejected_pro_flags,
+            rejected_mandatory_flags=rejected_mand_flags,
             rejected_proactive=rejected_pro,
             rejected_mandatory=rejected_mand,
         )

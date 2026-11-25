@@ -28,18 +28,21 @@ class DualStageTrigger:
         self.traffic_aware = traffic_aware
         self.dwell_s = np.zeros(cfg.M, dtype=np.int32)
         self.proactive_streak = np.zeros(cfg.M, dtype=np.int32)
+        self.proactive_cooldown = np.zeros(cfg.M, dtype=np.int32)
 
     def reset(self) -> None:
         self.dwell_s.fill(0)
         self.proactive_streak.fill(0)
+        self.proactive_cooldown.fill(0)
 
     def update_dwell(self, prev_sat_id: np.ndarray, new_sat_id: np.ndarray) -> None:
-        """Advance dwell counters after handover execution."""
+        """Advance dwell counters and decay proactive cooldown after handover execution."""
         stayed = (new_sat_id >= 0) & (new_sat_id == prev_sat_id)
         connected = new_sat_id >= 0
         self.dwell_s = np.where(stayed, self.dwell_s + 1, np.where(connected, 1, 0)).astype(np.int32)
-        # Reset proactive hysteresis streak upon handover or outage
+        # Reset proactive hysteresis streak & cooldown upon handover or outage
         self.proactive_streak = np.where(stayed, self.proactive_streak, 0).astype(np.int32)
+        self.proactive_cooldown = np.where(stayed, np.maximum(0, self.proactive_cooldown - 1), 0).astype(np.int32)
 
     def evaluate(
         self,
@@ -83,9 +86,9 @@ class DualStageTrigger:
 
             link_risk = float(nominal_sinr_db[cur_local, m]) < sinr_trig_th
             if self.traffic_aware:
-                slot_full = (sat_counts is not None) and (int(sat_counts[cur_local]) >= self.cfg.J)
+                slot_pressure = (sat_counts is not None) and (int(sat_counts[cur_local]) >= self.cfg.J)
                 traffic_risk = (
-                    slot_full
+                    slot_pressure
                     or (float(sat_rho[cur_local]) > self.cfg.rho_th)
                     or (float(sat_zeta[cur_local]) > self.cfg.zeta_th)
                     or (float(cell_rt_urg[m]) > self.cfg.rt_urg_th)
@@ -99,8 +102,14 @@ class DualStageTrigger:
             else:
                 self.proactive_streak[m] = 0
 
-            if self.dwell_s[m] >= self.cfg.T_dwell_min_s and self.proactive_streak[m] >= self.cfg.L_ttt_s:
+            if (
+                self.dwell_s[m] >= self.cfg.T_dwell_min_s
+                and self.proactive_streak[m] >= self.cfg.L_ttt_s
+                and self.proactive_cooldown[m] == 0
+            ):
                 i_pro[m] = 1
+                self.proactive_streak[m] = 0
+                self.proactive_cooldown[m] = self.cfg.proactive_cooldown_s
 
         i_trig = np.maximum(i_force, i_pro).astype(np.int32)
         return TriggerOutput(

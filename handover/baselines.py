@@ -142,7 +142,7 @@ class SwapHOPolicy(BaseHandoverPolicy):
     name = "Swap-HO"
     bypass_trigger_gate = False
 
-    def __init__(self, rel_gain_margin: float = 0.15, min_target_rvt_s: float = 35.0):
+    def __init__(self, rel_gain_margin: float = 0.08, min_target_rvt_s: float = 25.0):
         self.rel_gain_margin = float(rel_gain_margin)
         self.min_target_rvt_s = float(min_target_rvt_s)
 
@@ -184,13 +184,13 @@ class SwapHOPolicy(BaseHandoverPolicy):
                 alt = [int(n) for n in vis if int(n) != old_n]
                 cands = np.array(alt if len(alt) > 0 else vis.tolist(), dtype=np.int32)
 
-            # Composite utility: projected beam load + quadratic slot-headroom penalty + strong RVT term + SINR
+            # Composite utility: projected beam load + steep slot-headroom barrier + RVT + SINR
             proj_rho = rho[cands] + out.d_nm[cands, m] / k_max
             slot_frac = counts[cands] / float(j_cap)
-            cap_pen = np.where(counts[cands] >= j_cap, 20.0, 2.2 * (slot_frac ** 2))
+            cap_pen = np.where(counts[cands] >= j_cap, 25.0, 4.5 * (slot_frac ** 3))
             rvt_bonus = np.minimum(snap.rvt_s[cands, m] / 120.0, 1.0)
             sinr_bonus = np.clip((out.links["nominal_sinr_db"][cands, m] - 5.0) / 20.0, -0.5, 1.0)
-            cost = 0.85 * proj_rho + cap_pen - 1.35 * rvt_bonus - 0.25 * sinr_bonus
+            cost = 0.85 * proj_rho + cap_pen - 1.20 * rvt_bonus - 0.25 * sinr_bonus
             order = cands[np.argsort(cost)]
             # Always append any remaining visible satellites to fallback so admission never causes artificial outage
             order_list = order.tolist()
@@ -238,12 +238,18 @@ class SwapHOPolicy(BaseHandoverPolicy):
                 dm_new = float(out.d_nm[dst, m]) / k_max
                 if rho[dst] + dm_new > env.cfg.rho_max_soft:
                     continue
-                # Combined beam-load + slot-occupancy energy (encourages offloading full 14/14 sats onto rising sats)
-                old_e = rho[old_n] ** 2 + rho[dst] ** 2 + 0.8 * ((counts[old_n] / j_cap) ** 2 + (counts[dst] / j_cap) ** 2)
+                # Combined beam-load + barrier slot-occupancy energy (offloads 14/14 full sats onto rising sats)
+                b_old = 0.35 * max(0.0, float(counts[old_n]) - (j_cap - 2)) ** 2
+                b_dst = 0.35 * max(0.0, float(counts[dst]) - (j_cap - 2)) ** 2
+                b_old_n = 0.35 * max(0.0, float(counts[old_n] - 1) - (j_cap - 2)) ** 2
+                b_dst_n = 0.35 * max(0.0, float(counts[dst] + 1) - (j_cap - 2)) ** 2
+                old_e = rho[old_n] ** 2 + rho[dst] ** 2 + 1.2 * ((counts[old_n] / j_cap) ** 2 + (counts[dst] / j_cap) ** 2) + b_old + b_dst
                 new_e = (
                     max(0.0, rho[old_n] - dm_old) ** 2
                     + (rho[dst] + dm_new) ** 2
-                    + 0.8 * (((counts[old_n] - 1) / j_cap) ** 2 + ((counts[dst] + 1) / j_cap) ** 2)
+                    + 1.2 * (((counts[old_n] - 1) / j_cap) ** 2 + ((counts[dst] + 1) / j_cap) ** 2)
+                    + b_old_n
+                    + b_dst_n
                 )
                 rel_gain = (old_e - new_e) / max(old_e, 1e-6)
                 if rel_gain > best_rel_gain:

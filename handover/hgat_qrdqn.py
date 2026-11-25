@@ -131,6 +131,8 @@ class HGATLayer(nn.Module):
 
         self.norm_cell = nn.LayerNorm(hidden_dim)
         self.norm_sat = nn.LayerNorm(hidden_dim)
+        self.gate_cell = nn.Parameter(torch.tensor(0.25))
+        self.gate_sat = nn.Parameter(torch.tensor(0.25))
 
     def forward(self, h_sat, h_cell, e_cov, m_cov, e_serv, m_serv, e_comp, m_comp, sat_mask, cell_mask):
         # e_cov/e_serv have shape (B, C, K, E); transpose to (B, K, C, E) for sat -> cell messages
@@ -148,8 +150,8 @@ class HGATLayer(nn.Module):
             self.cov_c2s(h_sat, h_cell, e_cov, m_cov)
             + self.serv_c2s(h_sat, h_cell, e_serv, m_serv)
         )
-        h_cell_next = self.norm_cell(h_cell + F.elu(msg_cell)) * cell_mask.unsqueeze(-1)
-        h_sat_next = self.norm_sat(h_sat + F.elu(msg_sat)) * sat_mask.unsqueeze(-1)
+        h_cell_next = self.norm_cell(h_cell + self.gate_cell * F.elu(msg_cell)) * cell_mask.unsqueeze(-1)
+        h_sat_next = self.norm_sat(h_sat + self.gate_sat * F.elu(msg_sat)) * sat_mask.unsqueeze(-1)
         return h_sat_next, h_cell_next
 
 
@@ -402,9 +404,15 @@ class DRLHandoverAgent(BaseHandoverPolicy):
         q2_a = q2_all[b_idx, act_t] if q2_all is not None else None
 
         with torch.no_grad():
-            # Double Q-learning: select next action a* using online network under next_action_mask
+            # Double Q-learning: select next action a* using online network under next_action_mask.
+            # For QR-DQN stability (Dabney et al.), blend unbiased expectation (0.7) + adaptive CVaR (0.3)
+            # in Bellman bootstrapping so quantile estimates stay well-calibrated without recursive pessimism.
             nq1_on, nq2_on = self.net(next_obs_t)
-            next_scores = self._action_scores(nq1_on, nq2_on, next_obs_t["rt_frac"], next_obs_t["rt_urg"])
+            cvar_scores = self._action_scores(nq1_on, nq2_on, next_obs_t["rt_frac"], next_obs_t["rt_urg"])
+            mean_scores = nq1_on.mean(dim=-1)
+            if nq2_on is not None:
+                mean_scores = torch.minimum(mean_scores, nq2_on.mean(dim=-1))
+            next_scores = 0.7 * mean_scores + 0.3 * cvar_scores if self.use_cvar else mean_scores
             next_mask = next_obs_t["action_mask"]
             a_star = next_scores.masked_fill(next_mask < 0.5, -1e9).argmax(dim=-1)  # (B,)
 
@@ -419,7 +427,8 @@ class DRLHandoverAgent(BaseHandoverPolicy):
                 tq_next = tq1
 
             disc = (self.cfg.gamma ** dt_t).unsqueeze(-1) * (1.0 - done_t.unsqueeze(-1))
-            target_q = rew_t.unsqueeze(-1) + disc * tq_next  # (B, N_q)
+            # Bounded distributional value support [V_min, V_max] prevents outage bootstrap cliffs
+            target_q = (rew_t.unsqueeze(-1) + disc * tq_next).clamp(min=-12.0, max=6.0)  # (B, N_q)
 
         if self.distributional:
             loss = quantile_huber_loss(q1_a, target_q, kappa=self.cfg.huber_kappa)

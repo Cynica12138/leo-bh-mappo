@@ -165,24 +165,26 @@ class HandoverConfig:
 
     # Dual-stage CHO-inspired trigger
     T_cov_s: float = 10.0               # Mandatory RVT threshold (s)
-    T_dwell_min_s: int = 6              # Min dwell before proactive trigger (s)
+    T_dwell_min_s: int = 12             # Min dwell before proactive trigger (dwell=12 => dt=11 > ping_pong_window=10)
     L_ttt_s: int = 2                    # Consecutive seconds hysteresis for proactive trigger
-    sinr_th_db: float = 8.0             # Proactive link SINR threshold (dB)
+    proactive_cooldown_s: int = 5       # Cooldown after proactive trigger to form true SMDP horizons
+    sinr_th_db: float = 7.5             # Proactive link SINR threshold (dB)
     sinr_hys_db: float = 1.5            # Hysteresis margin (dB)
-    rho_th: float = 0.85                # Proactive satellite beam load threshold
-    zeta_th: float = 0.90               # Proactive single-cell overload threshold
-    rt_urg_th: float = 0.45             # Proactive RT HOL urgency / drop trigger threshold
-    rt_drop_trig_th: float = 0.03       # Recent RT drop rate proactive trigger
+    rho_th: float = 1.25                # Proactive satellite beam load threshold
+    zeta_th: float = 1.05               # Proactive single-cell overload threshold
+    rt_urg_th: float = 0.48             # Proactive RT HOL urgency / drop trigger threshold
+    rt_drop_trig_th: float = 0.10       # Recent RT drop rate proactive trigger
 
     # Satellite-side unified admission control
-    rho_max_soft: float = 1.20          # Soft beam-resource load cap
+    rho_max_soft: float = 1.55          # Soft beam-resource load cap
 
-    # Reward weights
-    w_tput: float = 1.0
+    # Reward weights (calibrated so load/slot relief beats normal HO cost while suppressing ping-pong & collisions)
+    w_tput: float = 1.2
     w_rt_drop: float = 2.8
-    w_ho_cost: float = 0.95
-    w_outage: float = 4.5
-    eta_coop: float = 0.9
+    w_ho_cost: float = 0.38
+    w_outage: float = 3.0
+    w_reject: float = 0.45              # Penalty for proposing an admission-rejected switch (proactive or mandatory)
+    eta_coop: float = 1.2
 
     # HGAT & QR-DQN / CVaR hyperparameters
     M_nbr: int = 8                      # Max competing neighbor cells in local graph
@@ -190,11 +192,11 @@ class HandoverConfig:
     hgat_layers: int = 2
     num_quantiles: int = 32
     huber_kappa: float = 1.0
-    gamma: float = 0.99
-    smdp_max_step: int = 20
-    beta_rt_share: float = 0.45         # beta_1 in alpha_m(t)
-    beta_rt_urg: float = 0.35           # beta_2 in alpha_m(t)
-    alpha_min: float = 0.20
+    gamma: float = 0.85                 # Bounded effective horizon matching LEO handover timescale
+    smdp_max_step: int = 12
+    beta_rt_share: float = 0.35         # beta_1 in alpha_m(t)
+    beta_rt_urg: float = 0.30           # beta_2 in alpha_m(t)
+    alpha_min: float = 0.35
     lr: float = 3e-4
     batch_size: int = 128
     target_tau: float = 0.005

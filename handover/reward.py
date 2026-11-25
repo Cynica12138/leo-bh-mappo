@@ -38,13 +38,15 @@ def compute_step_rewards(
         np.where(adm.outage_flags == 0, 1.0, 0.0),
     )
     ho_pen = adm.handover_flags.astype(np.float64) * step_out.cell_ho_cost * (
-        1.0 + 1.5 * step_out.ping_pong_flags.astype(np.float64)
+        1.0 + 2.5 * step_out.ping_pong_flags.astype(np.float64)
     )
+    rej_flags = np.maximum(adm.rejected_proactive_flags, adm.rejected_mandatory_flags).astype(np.float64)
     r_local = (
-        cfg.w_tput * tput_sat
+        cfg.w_tput * (tput_sat - 0.85)
         - cfg.w_rt_drop * srv.cell_rt_drop_rate
         - cfg.w_ho_cost * ho_pen
         - cfg.w_outage * adm.outage_flags.astype(np.float64)
+        - cfg.w_reject * rej_flags
     )
 
     # 2. O(1) Analytical Counterfactual Cooperation Reward on post-admission topology (prev_out.snap)
@@ -64,14 +66,25 @@ def compute_step_rewards(
             if len(ms) > 0:
                 rho[n] = float(d_nm[n, ms].sum()) / k_max
 
-        slot_w = 0.25
-        # Potential G(a) = -(1/N_t) * sum_n (rho_n^2 + slot_w * (c_n / J)^2)
+        slot_w = 1.2
+        barrier_w = 0.35
+        barrier_start = max(0.0, j_cap - 2.0)
+
+        # Barrier-convex potential G(a) = -(1/N_t) * sum_n [rho_n^2 + slot_w*(c_n/J)^2 + barrier_w*max(0, c_n-(J-2))^2]
+        # Incentivizes vacating 14/14 saturated satellites while keeping Stay exact counterfactual zero.
         def _term(r_val: float, c_val: float) -> float:
-            return r_val * r_val + slot_w * ((c_val / j_cap) ** 2)
+            excess = max(0.0, c_val - barrier_start)
+            return r_val * r_val + slot_w * ((c_val / j_cap) ** 2) + barrier_w * (excess * excess)
 
         sat_id_to_local = {int(sid): i for i, sid in enumerate(snap.active_sat_ids)}
         inv_n = 1.0 / float(n_act)
-        mean_term = float(np.mean(rho * rho + slot_w * ((counts / j_cap) ** 2)))
+        mean_term = float(
+            np.mean(
+                rho * rho
+                + slot_w * ((counts / j_cap) ** 2)
+                + barrier_w * (np.maximum(0.0, counts - barrier_start) ** 2)
+            )
+        )
 
         for m in range(m_cnt):
             new_sid = int(adm.new_cell_sat_id[m])
@@ -110,7 +123,7 @@ def compute_step_rewards(
                 r_coop[m] = (ref_marginal - marginal_cost) * inv_n
 
         # Scale counterfactual delta (divided by N_t ~ 15) to match local reward magnitude cleanly
-        r_coop = np.clip(r_coop * float(n_act) * 0.5, -2.0, 2.0)
+        r_coop = np.clip(r_coop * float(n_act) * 1.0, -2.5, 2.5)
 
     r_total = r_local + cfg.eta_coop * r_coop
     return r_total.astype(np.float32), r_local.astype(np.float32), r_coop.astype(np.float32)

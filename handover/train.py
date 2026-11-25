@@ -106,11 +106,14 @@ def train_algo(
         traffic_aware_trigger=spec["traffic_aware"],
     )
     tracker = SMDPTracker(cfg.M, gamma=cfg.gamma, max_step=cfg.smdp_max_step)
-    replay = StratifiedSMDPReplayBuffer(capacity=80000, ho_sample_frac=0.75)
+    replay = StratifiedSMDPReplayBuffer(capacity=80000, ho_sample_frac=0.55)
 
-    # Two-stage CVaR schedule: first 40% episodes risk-neutral warmup (blend=0), next 30% linear anneal -> 1.0
-    warmup_eps = max(1, int(round(episodes * 0.40)))
-    anneal_eps = max(1, int(round(episodes * 0.30)))
+    # Two-stage CVaR schedule: first 35% episodes risk-neutral warmup (blend=0), next 25% linear anneal -> 1.0
+    warmup_eps = max(1, int(round(episodes * 0.35)))
+    anneal_eps = max(1, int(round(episodes * 0.25)))
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        agent.optimizer, T_max=max(1, episodes), eta_min=cfg.lr * 0.20
+    )
 
     best_val_ret = -1e18
     best_state = copy.deepcopy(agent.net.state_dict())
@@ -118,8 +121,8 @@ def train_algo(
     t0 = time.perf_counter()
 
     # Diverse training load & user-count sampling for robust generalization
-    train_rates = [20.0, 25.0, 28.0, 32.0, 38.0]
-    train_users = [180, 200, 240, 280]
+    train_rates = [22.0, 26.0, 28.0, 32.0, 35.0]
+    train_users = [180, 200, 220, 240]
 
     for ep in range(1, episodes + 1):
         # Epsilon exponential decay: 0.60 -> 0.04
@@ -167,6 +170,7 @@ def train_algo(
             for _ in range(updates_per_ep):
                 batch_np = replay.sample(cfg.batch_size, rng)
                 losses.append(agent.update(batch_np))
+        scheduler.step()
 
         mean_loss = float(np.mean(losses)) if losses else 0.0
         ep_sum = env.get_episode_summary()
@@ -189,8 +193,9 @@ def train_algo(
             val_ret, val_m = evaluate_agent(agent, cfg, spec, seeds=(9001, 9002), duration_s=val_duration_s)
             rec["val_ret"] = val_ret
             rec["val_metrics"] = val_m
-            # Save best after warmup (or anytime if not CVaR)
-            if (not agent.use_cvar or ep >= warmup_eps) and val_ret > best_val_ret:
+            # Save best after CVaR annealing reaches >= 0.8 (or anytime if not CVaR)
+            eligible = (not agent.use_cvar) or (agent.cvar_blend >= 0.8) or (ep == episodes)
+            if eligible and val_ret > best_val_ret:
                 best_val_ret = val_ret
                 best_state = copy.deepcopy(agent.net.state_dict())
             if verbose:
@@ -224,7 +229,7 @@ def main():
     parser.add_argument("--updates-per-ep", type=int, default=80)
     parser.add_argument("--num-users", type=int, default=200)
     parser.add_argument("--rate", type=float, default=28.0)
-    parser.add_argument("--twin", action="store_true")
+    parser.add_argument("--no-twin", action="store_true", help="Disable clipped Twin Q-heads (enabled by default)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--save-dir", type=str, default="handover/checkpoints")
@@ -247,7 +252,7 @@ def main():
             updates_per_ep=args.updates_per_ep,
             save_dir=args.save_dir,
             seed=args.seed + i,
-            twin=args.twin,
+            twin=not args.no_twin,
         )
 
     out_json = os.path.join(args.save_dir, "train_summary.json")
