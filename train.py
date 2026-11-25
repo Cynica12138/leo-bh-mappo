@@ -43,7 +43,7 @@ def equal_power_np(b_mask: np.ndarray) -> np.ndarray:
 
 
 def compute_teacher_targets(obs: dict, interference_aware: bool = True):
-    """Physics-based teacher scores for BC warm-start (queue + RT urgency + optional interference priors & power)."""
+    """Smooth deterministic teacher targets for BC warm-start (no per-satellite z-score ambiguity)."""
     F_in = obs["F"]        # (N, J, 5): [q, avg_d, hol_w, hist_tput, v_cov]
     Om = obs["Omega"]      # (N, J, J)
     C = obs["C"]           # (N, J, J)
@@ -56,22 +56,27 @@ def compute_teacher_targets(obs: dict, interference_aware: bool = True):
         avail = np.where(am[n] > 0.5)[0]
         if len(avail) == 0:
             continue
+        q = F_in[n, :, 0]
+        d = F_in[n, :, 1]
+        hol = F_in[n, :, 2]
+        occ = avail[q[avail] > 1e-6]
+        if len(occ) == 0:
+            continue
+
         if interference_aware:
-            # Joint queue, RT delay, HOL urgency, and geometric/co-visibility interference awareness
-            base = 1.8 * F_in[n, :, 0] + 2.6 * F_in[n, :, 1] + 1.8 * F_in[n, :, 2] - 0.15 * F_in[n, :, 3]
-            demand_w = F_in[n, :, 0] + F_in[n, :, 1]
-            int_pen = 0.45 * (Om[n] @ demand_w) + 0.30 * (C[n] @ demand_w) + 0.20 * F_in[n, :, 4]
+            # Smooth linear demand + RT urgency with neighbor interference awareness (no high-load compression)
+            base = 2.4 * q + 3.6 * d + 2.4 * hol
+            demand_w = q + d
+            int_pen = 0.12 * (Om[n] @ demand_w) + 0.05 * (C[n] @ demand_w)
             s = base - int_pen
         else:
-            # Simpler myopic queue-driven baseline initialization (without interference priors)
-            s = 1.2 * F_in[n, :, 0] + 0.6 * F_in[n, :, 1]
-        s_av = s[avail]
-        s_norm = (s_av - s_av.mean()) / (s_av.std() + 1e-4)
-        scores[n, avail] = np.clip(s_norm, -3.0, 3.0)
-        # Strong demand-proportional continuous power allocation for MAPPO-BH
-        pw = 1.35 * np.log(np.maximum(F_in[n, avail, 0] + 1.5 * F_in[n, avail, 1] + 0.25 * F_in[n, avail, 4], 0.03))
-        pw = np.clip(pw - pw.mean(), -2.0, 2.0)
-        power_logits[n, avail] = pw
+            # Myopic queue + delay target (for equal-power / centralized baselines)
+            s = 2.0 * q + 3.0 * d + 2.0 * hol
+
+        scores[n, occ] = np.clip(s[occ], -3.0, 12.0)
+        # Unclipped shift-invariant continuous power logits: softmax(pw) == w^0.8 / sum(w^0.8) across 10-50 Mbps
+        pw = 0.8 * np.log(np.maximum(q[occ] + 2.5 * d[occ] + 1.5 * hol[occ], 0.015)) + 0.5
+        power_logits[n, occ] = np.clip(pw, -3.5, 3.5)
 
     return scores, power_logits
 
@@ -81,25 +86,38 @@ def collect_bc_dataset(num_episodes: int = 24, slots: int = 40, interference_awa
     data = []
     for ep in range(num_episodes):
         rate = float(cfg.EVAL_RATES_MBPS[ep % len(cfg.EVAL_RATES_MBPS)])
-        num_u = int(200 + (ep * 29) % 250)
+        num_u = int(170 + (ep * 13) % 65)
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         for _ in range(slots):
             sc, pw = compute_teacher_targets(obs, interference_aware=interference_aware)
             data.append((obs["s"], obs["F"], obs["Omega"], obs["C"], obs["real_mask"], obs["action_mask"], sc, pw))
-            # Execute teacher action to visit realistic on-policy states
             am = obs["action_mask"]
+            Om = obs["Omega"]
+            q_all = obs["F"][:, :, 0]
             b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
             p = np.zeros((cfg.N, cfg.J), dtype=np.float32)
             for n in range(cfg.N):
                 avail = np.where(am[n] > 0.5)[0]
-                k = min(cfg.K_MAX, len(avail))
+                occ = avail[q_all[n, avail] > 1e-6]
+                cand = occ if len(occ) > 0 else avail
+                k = min(cfg.K_MAX, len(cand))
                 if k > 0:
-                    chosen = avail[np.argsort(-sc[n, avail])[:k]]
-                    b[n, chosen] = 1.0
                     if interference_aware:
+                        # Sequential interference-avoiding rollout matching MAPPOActor decoding
+                        cur_sc = sc[n].copy()
+                        chosen = []
+                        rem = list(cand)
+                        for _ in range(k):
+                            bj = rem[int(np.argmax([cur_sc[j] for j in rem]))]
+                            chosen.append(bj)
+                            rem.remove(bj)
+                            cur_sc -= 0.9 * Om[n, bj]
+                        b[n, chosen] = 1.0
                         ex = np.exp(pw[n, chosen])
                         p[n, chosen] = ex / ex.sum()
                     else:
+                        chosen = cand[np.argsort(-sc[n, cand])[:k]]
+                        b[n, chosen] = 1.0
                         p[n, chosen] = 1.0 / k
             obs, _, _ = env.step(b, p)
     return data
@@ -108,16 +126,17 @@ def collect_bc_dataset(num_episodes: int = 24, slots: int = 40, interference_awa
 def validate_policy(eval_fn, env: LEOBHEnv, slots: int = 80, rate: float = 50.0):
     tputs, delays, rews = [], [], []
     for tc in range(5):
-        obs = env.reset(input_rate_mbps=rate, num_users=300, seed=5000 + tc)
+        obs = env.reset(input_rate_mbps=rate, num_users=200, seed=5000 + tc)
         state = eval_fn("reset", None, None)
         tot_bits, d_sum, r_sum = 0.0, 0.0, 0.0
-        for _ in range(slots):
+        for step_i in range(slots + 20):
             b, p, state = eval_fn("act", obs, state)
             obs, r, info = env.step(b, p)
-            tot_bits += info["zeta_t"]
-            d_sum += info["gamma_t"]
-            r_sum += r
-        tputs.append((tot_bits / (slots * cfg.T_SLOT)) / (300 * 1e6))
+            if step_i >= 20:
+                tot_bits += info["zeta_t"]
+                d_sum += info["gamma_t"]
+                r_sum += r
+        tputs.append((tot_bits / (slots * cfg.T_SLOT)) / (200 * 1e6))
         delays.append(d_sum / slots)
         rews.append(r_sum)
     return float(np.mean(rews)), float(np.mean(tputs)), float(np.mean(delays))
@@ -130,35 +149,41 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
     actor = MAPPOActor()
     critic = MAPPOCritic()
 
-    # Phase 1: Behavioral Cloning warm-start (all 10-50 Mbps)
-    opt_bc = torch.optim.Adam(actor.parameters(), lr=1e-3)
-    N_data = len(bc_data)
-    t_F_all = torch.tensor(np.array([d[1] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J, cfg.NODE_FEAT_DIM)
-    t_Om_all = torch.tensor(np.array([d[2] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J, cfg.J)
-    t_C_all = torch.tensor(np.array([d[3] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J, cfg.J)
-    t_rm_all = torch.tensor(np.array([d[4] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    t_am_all = torch.tensor(np.array([d[5] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    t_sc_all = torch.tensor(np.array([d[6] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    t_pw_all = torch.tensor(np.array([d[7] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    M_tot = t_F_all.shape[0]
-    for _ in range(12):
-        perm = torch.randperm(M_tot)
-        for st in range(0, M_tot, 256):
-            idx = perm[st : st + 256]
-            h0 = torch.zeros(1, len(idx), cfg.HIDDEN_DIM)
-            logits, mu, _, _ = actor.forward_step(t_F_all[idx], t_Om_all[idx], t_C_all[idx], t_rm_all[idx], h0)
-            am = t_am_all[idx]
-            loss_d = ((logits - t_sc_all[idx]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
-            loss_p = ((mu - t_pw_all[idx]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
-            loss = loss_d + 0.5 * loss_p
+    # Phase 1: Recurrent sequence BC warm-start (unrolled over real episodes to match eval GRU state)
+    opt_bc = torch.optim.Adam(actor.parameters(), lr=2e-3)
+    seq_len = 40
+    n_eps_bc = len(bc_data) // seq_len
+    t_F_seq = torch.tensor(np.array([d[1] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.NODE_FEAT_DIM).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.NODE_FEAT_DIM)
+    t_Om_seq = torch.tensor(np.array([d[2] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.J).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.J)
+    t_C_seq = torch.tensor(np.array([d[3] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.J).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.J)
+    t_rm_seq = torch.tensor(np.array([d[4] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    t_am_seq = torch.tensor(np.array([d[5] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    t_sc_seq = torch.tensor(np.array([d[6] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    t_pw_seq = torch.tensor(np.array([d[7] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    B_seq = t_F_seq.shape[0]
+    for _ in range(25):
+        perm = torch.randperm(B_seq)
+        for st in range(0, B_seq, 108):
+            idx = perm[st : st + 108]
+            h = torch.zeros(1, len(idx), cfg.HIDDEN_DIM)
+            loss_sum = 0.0
+            for t in range(seq_len):
+                logits, mu, _, h = actor.forward_step(t_F_seq[idx, t], t_Om_seq[idx, t], t_C_seq[idx, t], t_rm_seq[idx, t], h)
+                am = t_am_seq[idx, t] * (t_F_seq[idx, t][..., 0] > 1e-6).float()
+                denom = am.sum().clamp(min=1.0)
+                loss_d = ((logits - t_sc_seq[idx, t]) ** 2 * am).sum() / denom
+                loss_p = ((mu - t_pw_seq[idx, t]) ** 2 * am).sum() / denom
+                loss_sum = loss_sum + (loss_d + 1.5 * loss_p)
+            loss = loss_sum / seq_len
             opt_bc.zero_grad()
             loss.backward()
+            nn.utils.clip_grad_norm_(actor.parameters(), 1.0)
             opt_bc.step()
 
     # Phase 2: Genuine MAPPO RL fine-tuning
     env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed)
     val_env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=999)
-    opt_a = torch.optim.Adam(actor.parameters(), lr=1e-4)
+    opt_a = torch.optim.Adam(actor.parameters(), lr=5e-5)
     opt_c = torch.optim.Adam(critic.parameters(), lr=cfg.LR_CRITIC)
 
     def eval_fn(cmd, obs, state):
@@ -187,7 +212,7 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
 
     for ep in range(1, episodes + 1):
         rate = float(np.random.choice(cfg.EVAL_RATES_MBPS))
-        num_u = int(np.random.randint(200, 420))
+        num_u = int(np.random.randint(170, 235))
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         h = torch.zeros(1, cfg.N, cfg.HIDDEN_DIM)
 
@@ -244,23 +269,24 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
             total_samples = T * cfg.N
             stop_early = False
             for _ in range(cfg.N_EPO):
-                perm_a = torch.randperm(total_samples)
-                for start in range(0, total_samples, 512):
-                    idx = perm_a[start : start + 512]
-                    new_lp, ent_d, ent_c = actor.evaluate_actions(
-                        t_F[idx], t_Om[idx], t_C[idx], t_rm[idx], t_am[idx], t_h[:, idx, :], t_j[idx], t_y[idx], t_b[idx]
-                    )
-                    log_ratio = (new_lp - t_old_lp[idx]).clamp(-10, 10)
-                    if ((log_ratio.exp() - 1.0) - log_ratio).mean().item() > 0.025:
-                        stop_early = True
-                        break
-                    ratio = log_ratio.exp()
-                    surr = torch.min(ratio * t_adv[idx], ratio.clamp(1.0 - cfg.EPS_CLIP, 1.0 + cfg.EPS_CLIP) * t_adv[idx])
-                    loss_a = -surr.mean() - 0.005 * ent_d.mean() - 0.001 * ent_c.mean()
-                    opt_a.zero_grad()
-                    loss_a.backward()
-                    nn.utils.clip_grad_norm_(actor.parameters(), 0.5)
-                    opt_a.step()
+                if ep > 16:
+                    perm_a = torch.randperm(total_samples)
+                    for start in range(0, total_samples, 512):
+                        idx = perm_a[start : start + 512]
+                        new_lp, ent_d, ent_c = actor.evaluate_actions(
+                            t_F[idx], t_Om[idx], t_C[idx], t_rm[idx], t_am[idx], t_h[:, idx, :], t_j[idx], t_y[idx], t_b[idx]
+                        )
+                        log_ratio = (new_lp - t_old_lp[idx]).clamp(-10, 10)
+                        if ((log_ratio.exp() - 1.0) - log_ratio).mean().item() > 0.015:
+                            stop_early = True
+                            break
+                        ratio = log_ratio.exp()
+                        surr = torch.min(ratio * t_adv[idx], ratio.clamp(1.0 - cfg.EPS_CLIP, 1.0 + cfg.EPS_CLIP) * t_adv[idx])
+                        loss_a = -surr.mean() - 0.002 * ent_d.mean() - 0.0005 * ent_c.mean()
+                        opt_a.zero_grad()
+                        loss_a.backward()
+                        nn.utils.clip_grad_norm_(actor.parameters(), 0.5)
+                        opt_a.step()
 
                 perm_c = torch.randperm(T)
                 for start in range(0, T, min(cfg.N_MB, T)):
@@ -275,7 +301,7 @@ def train_mappo(episodes: int, slots: int, save_path: str, bc_data: list, seed: 
             for k in acc:
                 acc[k].clear()
 
-        if ep % max(1, episodes // 4) == 0:
+        if ep % max(1, episodes // 8) == 0:
             vr, vt, vd = validate_policy(eval_fn, val_env)
             if vr > best_val:
                 best_val = vr
@@ -302,17 +328,17 @@ def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: in
     torch.manual_seed(seed)
     np.random.seed(seed)
     model = PPOBHModel()
-    opt_bc = torch.optim.Adam(model.parameters(), lr=1e-3)
+    opt_bc = torch.optim.Adam(model.parameters(), lr=1.5e-3, weight_decay=1e-3)
     t_s_all = torch.tensor(np.array([d[0] for d in bc_data]), dtype=torch.float32)
     t_F_all = torch.tensor(np.array([d[1] for d in bc_data]), dtype=torch.float32)
     t_am_all = torch.tensor(np.array([d[5] for d in bc_data]), dtype=torch.float32)
     t_sc_all = torch.tensor(np.array([d[6] for d in bc_data]), dtype=torch.float32)
-    for _ in range(10):
+    for _ in range(16):
         perm = torch.randperm(len(bc_data))
         for st in range(0, len(bc_data), 64):
             idx = perm[st : st + 64]
             logits, mu, _, _ = model(t_s_all[idx], t_F_all[idx])
-            am = t_am_all[idx]
+            am = t_am_all[idx] * (t_F_all[idx][..., 0] > 1e-6).float()
             loss = ((logits - t_sc_all[idx]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
             opt_bc.zero_grad()
             loss.backward()
@@ -320,7 +346,7 @@ def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: in
 
     env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=seed)
     val_env = LEOBHEnv("isa", alpha=cfg.ALPHA, seed=999)
-    opt = torch.optim.Adam(model.parameters(), lr=1e-4)
+    opt = torch.optim.Adam(model.parameters(), lr=3e-5)
 
     def eval_fn(cmd, obs, state):
         if cmd == "reset":
@@ -341,7 +367,7 @@ def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: in
     history = []
     for ep in range(1, episodes + 1):
         rate = float(np.random.choice(cfg.EVAL_RATES_MBPS))
-        num_u = int(np.random.randint(200, 420))
+        num_u = int(np.random.randint(170, 235))
         obs = env.reset(input_rate_mbps=rate, num_users=num_u)
         buf_s, buf_F, buf_am, buf_j, buf_y, buf_b, buf_lp, buf_r, buf_v = [], [], [], [], [], [], [], [], []
         ep_ret = 0.0
@@ -380,8 +406,9 @@ def train_ppo(episodes: int, slots: int, save_path: str, bc_data: list, seed: in
                 idx = perm[start : start + 32]
                 B = len(idx)
                 logits, mu, std, val = model(t_s[idx], t_F[idx])
+                eff_am = t_am[idx] * (t_F[idx][..., 0] > 1e-6).float()
                 lp_d, ent_d = evaluate_without_replacement_batch(
-                    logits.reshape(B * cfg.N, cfg.J), t_am[idx].reshape(B * cfg.N, cfg.J), t_j[idx].reshape(B * cfg.N, cfg.K_MAX)
+                    logits.reshape(B * cfg.N, cfg.J), eff_am.reshape(B * cfg.N, cfg.J), t_j[idx].reshape(B * cfg.N, cfg.K_MAX)
                 )
                 dist = torch.distributions.Normal(mu, std)
                 new_lp = lp_d.view(B, cfg.N).sum(dim=1) + (dist.log_prob(t_y[idx]) * t_b[idx]).sum(dim=(1, 2))
@@ -409,19 +436,26 @@ def train_qmix(episodes: int, slots: int, save_path: str, bc_data: list, seed: i
     agent = QMIXAgent()
     mixer = QMIXMixer()
 
-    # BC warm-start for Q-values
-    opt_bc = torch.optim.Adam(agent.parameters(), lr=1e-3)
-    t_F_all = torch.tensor(np.array([d[1] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J, cfg.NODE_FEAT_DIM)
-    t_am_all = torch.tensor(np.array([d[5] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    t_sc_all = torch.tensor(np.array([d[6] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    for _ in range(10):
-        perm = torch.randperm(t_F_all.shape[0])
-        for st in range(0, t_F_all.shape[0], 256):
-            idx = perm[st : st + 256]
-            q, _ = agent(t_F_all[idx], torch.zeros(1, len(idx), 128))
-            am = t_am_all[idx]
-            loss = ((q - t_sc_all[idx]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
-            opt_bc.zero_grad(); loss.backward(); opt_bc.step()
+    # Recurrent sequence BC warm-start for Q-values
+    opt_bc = torch.optim.Adam(agent.parameters(), lr=2e-3)
+    seq_len = 40
+    n_eps_bc = len(bc_data) // seq_len
+    t_F_seq = torch.tensor(np.array([d[1] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J, cfg.NODE_FEAT_DIM).permute(0, 2, 1, 3, 4).reshape(n_eps_bc * cfg.N, seq_len, cfg.J, cfg.NODE_FEAT_DIM)
+    t_am_seq = torch.tensor(np.array([d[5] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    t_sc_seq = torch.tensor(np.array([d[6] for d in bc_data[: n_eps_bc * seq_len]]), dtype=torch.float32).reshape(n_eps_bc, seq_len, cfg.N, cfg.J).permute(0, 2, 1, 3).reshape(n_eps_bc * cfg.N, seq_len, cfg.J)
+    B_seq = t_F_seq.shape[0]
+    for _ in range(20):
+        perm = torch.randperm(B_seq)
+        for st in range(0, B_seq, 108):
+            idx = perm[st : st + 108]
+            h = torch.zeros(1, len(idx), 128)
+            loss_sum = 0.0
+            for t in range(seq_len):
+                q, h = agent(t_F_seq[idx, t], h)
+                am = t_am_seq[idx, t] * (t_F_seq[idx, t][..., 0] > 1e-6).float()
+                loss_sum = loss_sum + ((q - t_sc_seq[idx, t]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
+            loss = loss_sum / seq_len
+            opt_bc.zero_grad(); loss.backward(); nn.utils.clip_grad_norm_(agent.parameters(), 1.0); opt_bc.step()
 
     t_agent, t_mixer = copy.deepcopy(agent), copy.deepcopy(mixer)
     opt = torch.optim.Adam(list(agent.parameters()) + list(mixer.parameters()), lr=1e-4)
@@ -437,7 +471,7 @@ def train_qmix(episodes: int, slots: int, save_path: str, bc_data: list, seed: i
         am = obs["action_mask"]
         b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
-            avail = np.where(am[n] > 0.5)[0]
+            avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
             k = min(cfg.K_MAX, len(avail))
             if k > 0:
                 b[n, avail[np.argsort(-q_np[n, avail])[:k]]] = 1.0
@@ -451,7 +485,7 @@ def train_qmix(episodes: int, slots: int, save_path: str, bc_data: list, seed: i
     replay, history = [], []
     for ep in range(1, episodes + 1):
         eps = max(0.05, 0.25 * (1.0 - ep / episodes))
-        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(200, 420)))
+        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(170, 235)))
         h = torch.zeros(1, cfg.N, 128)
         ep_ret = 0.0
         for _ in range(slots):
@@ -461,7 +495,7 @@ def train_qmix(episodes: int, slots: int, save_path: str, bc_data: list, seed: i
                 q_np = q_vals.numpy()
             b_sel = np.zeros((cfg.N, cfg.J), dtype=np.float32)
             for n in range(cfg.N):
-                avail = np.where(am[n] > 0.5)[0]
+                avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
                 k = min(cfg.K_MAX, len(avail))
                 if k == 0: continue
                 chosen = np.random.choice(avail, size=k, replace=False) if np.random.random() < eps else avail[np.argsort(-q_np[n, avail])[:k]]
@@ -518,16 +552,16 @@ def train_maddpg(episodes: int, slots: int, save_path: str, bc_data: list, seed:
     actor = MADDPGActor()
     critic = MADDPGCritic()
 
-    opt_bc = torch.optim.Adam(actor.parameters(), lr=1e-3)
+    opt_bc = torch.optim.Adam(actor.parameters(), lr=1.5e-3)
     t_F_all = torch.tensor(np.array([d[1] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J, cfg.NODE_FEAT_DIM)
     t_am_all = torch.tensor(np.array([d[5] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
     t_sc_all = torch.tensor(np.array([d[6] for d in bc_data]), dtype=torch.float32).reshape(-1, cfg.J)
-    for _ in range(10):
+    for _ in range(16):
         perm = torch.randperm(t_F_all.shape[0])
         for st in range(0, t_F_all.shape[0], 256):
             idx = perm[st : st + 256]
             logits = actor(t_F_all[idx])
-            am = t_am_all[idx]
+            am = t_am_all[idx] * (t_F_all[idx][..., 0] > 1e-6).float()
             loss = ((logits - t_sc_all[idx]) ** 2 * am).sum() / am.sum().clamp(min=1.0)
             opt_bc.zero_grad(); loss.backward(); opt_bc.step()
 
@@ -545,7 +579,7 @@ def train_maddpg(episodes: int, slots: int, save_path: str, bc_data: list, seed:
         am = obs["action_mask"]
         b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
-            avail = np.where(am[n] > 0.5)[0]
+            avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
             k = min(cfg.K_MAX, len(avail))
             if k > 0:
                 b[n, avail[np.argsort(-logits[n, avail])[:k]]] = 1.0
@@ -559,7 +593,7 @@ def train_maddpg(episodes: int, slots: int, save_path: str, bc_data: list, seed:
     replay, history = [], []
     for ep in range(1, episodes + 1):
         noise_scale = max(0.05, 0.25 * (1.0 - ep / episodes))
-        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(200, 420)))
+        obs = env.reset(input_rate_mbps=float(np.random.choice(cfg.EVAL_RATES_MBPS)), num_users=int(np.random.randint(170, 235)))
         ep_ret = 0.0
         for _ in range(slots):
             am = obs["action_mask"]
@@ -567,7 +601,7 @@ def train_maddpg(episodes: int, slots: int, save_path: str, bc_data: list, seed:
                 logits = actor(torch.from_numpy(obs["F"])).numpy() + np.random.normal(0.0, noise_scale, size=(cfg.N, cfg.J))
             b_sel = np.zeros((cfg.N, cfg.J), dtype=np.float32)
             for n in range(cfg.N):
-                avail = np.where(am[n] > 0.5)[0]
+                avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
                 k = min(cfg.K_MAX, len(avail))
                 if k > 0:
                     b_sel[n, avail[np.argsort(-logits[n, avail])[:k]]] = 1.0
@@ -622,19 +656,18 @@ def main():
     parser.add_argument("--algos", nargs="+", default=["mappo", "ppo", "qmix", "maddpg"])
     args = parser.parse_args()
 
-    torch.set_num_threads(4)
-    print("Collecting on-policy teacher datasets across 10-50 Mbps...")
-    bc_mappo = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=True, seed=777)
-    bc_base = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=False, seed=888)
-
+    torch.set_num_threads(2)
     if "mappo" in args.algos:
+        bc_mappo = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=True, seed=777)
         train_mappo(args.episodes, args.slots, os.path.join(args.ckpt_dir, "mappo_bh.pt"), bc_mappo)
-    if "ppo" in args.algos:
-        train_ppo(args.episodes, args.slots, os.path.join(args.ckpt_dir, "ppo_bh.pt"), bc_base)
-    if "qmix" in args.algos:
-        train_qmix(args.episodes, args.slots, os.path.join(args.ckpt_dir, "qmix_bh.pt"), bc_base)
-    if "maddpg" in args.algos:
-        train_maddpg(args.episodes, args.slots, os.path.join(args.ckpt_dir, "maddpg_bh.pt"), bc_base)
+    if any(a in args.algos for a in ["ppo", "qmix", "maddpg"]):
+        bc_base = collect_bc_dataset(num_episodes=27, slots=40, interference_aware=False, seed=888)
+        if "ppo" in args.algos:
+            train_ppo(args.episodes, args.slots, os.path.join(args.ckpt_dir, "ppo_bh.pt"), bc_base)
+        if "qmix" in args.algos:
+            train_qmix(args.episodes, args.slots, os.path.join(args.ckpt_dir, "qmix_bh.pt"), bc_base)
+        if "maddpg" in args.algos:
+            train_maddpg(args.episodes, args.slots, os.path.join(args.ckpt_dir, "maddpg_bh.pt"), bc_base)
 
 
 if __name__ == "__main__":

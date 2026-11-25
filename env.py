@@ -25,17 +25,24 @@ class LEOBHEnv:
         self.alpha = alpha
         self.rng = np.random.default_rng(seed)
 
-        # Build fixed 12x12 ground cell centers (M = 144)
-        gx = (np.arange(12) - 5.5) * cfg.CELL_SPACING_M
-        gy = (np.arange(12) - 5.5) * cfg.CELL_SPACING_M
-        cx, cy = np.meshgrid(gx, gy, indexing="ij")
-        self.cell_pos = np.stack([cx.ravel(), cy.ravel(), np.zeros(cfg.M)], axis=-1)  # (144, 3)
-
-        # Build 4x4 satellite positions at altitude H = 515 km (N = 16)
-        sx = (np.arange(4) - 1.5) * (3.0 * cfg.CELL_SPACING_M)
-        sy = (np.arange(4) - 1.5) * (3.0 * cfg.CELL_SPACING_M)
-        ssx, ssy = np.meshgrid(sx, sy, indexing="ij")
-        self.sat_pos = np.stack([ssx.ravel(), ssy.ravel(), np.full(cfg.N, cfg.H)], axis=-1)  # (16, 3)
+        # Build 16 satellite positions (4x4 grid) and 144 ground cells (16 local 3x3 multibeam clusters)
+        self.cell_pos = np.zeros((cfg.M, 3), dtype=np.float64)
+        self.sat_pos = np.zeros((cfg.N, 3), dtype=np.float64)
+        sx = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
+        sy = (np.arange(4) - 1.5) * cfg.SAT_SPACING_M
+        idx_m = 0
+        for ix in range(4):
+            for iy in range(4):
+                n = ix * 4 + iy
+                self.sat_pos[n] = [sx[ix], sy[iy], cfg.H]
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        self.cell_pos[idx_m] = [
+                            sx[ix] + dx * cfg.CELL_SPACING_M,
+                            sy[iy] + dy * cfg.CELL_SPACING_M,
+                            0.0,
+                        ]
+                        idx_m += 1
 
         # Precompute geometry & visibility matrix V (N, M) with <= J=14 candidate cells per satellite
         diff = self.cell_pos[None, :, :] - self.sat_pos[:, None, :]  # (N, M, 3)

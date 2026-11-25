@@ -87,7 +87,7 @@ class QMIXPolicyWrapper:
         am = obs["action_mask"]
         b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
-            avail = np.where(am[n] > 0.5)[0]
+            avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
             k = min(cfg.K_MAX, len(avail))
             if k > 0:
                 chosen = avail[np.argsort(-q_np[n, avail])[:k]]
@@ -111,7 +111,7 @@ class MADDPGPolicyWrapper:
         am = obs["action_mask"]
         b = np.zeros((cfg.N, cfg.J), dtype=np.float32)
         for n in range(cfg.N):
-            avail = np.where(am[n] > 0.5)[0]
+            avail = np.where((am[n] > 0.5) & (obs["F"][n, :, 0] > 1e-6))[0]
             k = min(cfg.K_MAX, len(avail))
             if k > 0:
                 chosen = avail[np.argsort(-logits[n, avail])[:k]]
@@ -162,7 +162,7 @@ def main():
         for name, pol in policies.items():
             tputs, delays = [], []
             for tc in range(args.test_cases):
-                obs = env.reset(input_rate_mbps=rate, num_users=340, seed=1000 + tc)
+                obs = env.reset(input_rate_mbps=rate, num_users=200, seed=1000 + tc)
                 pol.reset()
                 tot_bits = 0.0
                 d_sum = 0.0

@@ -8,8 +8,23 @@ import torch.nn.functional as F
 import config as cfg
 
 
-def sample_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor, k_max: int = cfg.K_MAX, deterministic: bool = False):
-    """Sequential sampling without replacement from masked categorical distributions."""
+def active_backlog_mask(F_in: torch.Tensor, action_mask: torch.Tensor) -> torch.Tensor:
+    """Restrict candidate beams to associated cells with non-zero observed queue backlog."""
+    return action_mask * (F_in[..., 0] > 1e-6).to(action_mask.dtype)
+
+
+def sample_without_replacement_batch(
+    logits: torch.Tensor,
+    mask: torch.Tensor,
+    k_max: int = cfg.K_MAX,
+    deterministic: bool = False,
+    pair_penalty: torch.Tensor | None = None,
+):
+    """Sequential sampling without replacement from masked categorical distributions.
+
+    If pair_penalty (B, J, J) is provided, selecting cell j_i updates remaining candidate logits
+    by subtracting pair_penalty[:, j_i, :] at subsequent steps to avoid adjacent-beam collisions.
+    """
     B, J = logits.shape
     device = logits.device
     avail_mask = mask > 0.5
@@ -19,11 +34,13 @@ def sample_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor, k
     total_ent = torch.zeros(B, dtype=torch.float32, device=device)
 
     cur_avail = avail_mask.clone()
+    cur_logits = logits.clone()
+    batch_idx = torch.arange(B, device=device)
     for step in range(k_max):
         has_any = cur_avail.any(dim=-1)
         if not has_any.any():
             break
-        masked_logits = logits.masked_fill(~cur_avail, -1e9)
+        masked_logits = cur_logits.masked_fill(~cur_avail, -1e9)
         log_probs = F.log_softmax(masked_logits, dim=-1)
         probs = log_probs.exp()
         if deterministic:
@@ -43,23 +60,35 @@ def sample_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor, k
         b_mask = b_mask + (one_hot & has_any.unsqueeze(-1)).float()
         cur_avail = cur_avail & ~(one_hot & has_any.unsqueeze(-1))
 
+        if pair_penalty is not None:
+            pen_step = pair_penalty[batch_idx, chosen]  # (B, J)
+            cur_logits = cur_logits - torch.where(has_any.unsqueeze(-1), pen_step, torch.zeros_like(pen_step))
+
     return j_seq, b_mask, total_lp, total_ent
 
 
-def evaluate_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor, j_seq: torch.Tensor):
+def evaluate_without_replacement_batch(
+    logits: torch.Tensor,
+    mask: torch.Tensor,
+    j_seq: torch.Tensor,
+    pair_penalty: torch.Tensor | None = None,
+):
     """Reevaluate log-probability and entropy of stored sampled sequences j_seq (B, k_max)."""
     B, J = logits.shape
     k_max = j_seq.shape[1]
+    device = logits.device
     cur_avail = mask > 0.5
-    total_lp = torch.zeros(B, dtype=torch.float32, device=logits.device)
-    total_ent = torch.zeros(B, dtype=torch.float32, device=logits.device)
+    cur_logits = logits.clone()
+    total_lp = torch.zeros(B, dtype=torch.float32, device=device)
+    total_ent = torch.zeros(B, dtype=torch.float32, device=device)
+    batch_idx = torch.arange(B, device=device)
 
     for step in range(k_max):
         chosen = j_seq[:, step]
         valid = chosen >= 0
         if not valid.any():
             break
-        masked_logits = logits.masked_fill(~cur_avail, -1e9)
+        masked_logits = cur_logits.masked_fill(~cur_avail, -1e9)
         log_probs = F.log_softmax(masked_logits, dim=-1)
         probs = log_probs.exp()
         safe_idx = chosen.clamp(min=0)
@@ -71,6 +100,10 @@ def evaluate_without_replacement_batch(logits: torch.Tensor, mask: torch.Tensor,
 
         one_hot = F.one_hot(safe_idx, num_classes=J).bool()
         cur_avail = cur_avail & ~(one_hot & valid.unsqueeze(-1))
+
+        if pair_penalty is not None:
+            pen_step = pair_penalty[batch_idx, safe_idx]
+            cur_logits = cur_logits - torch.where(valid.unsqueeze(-1), pen_step, torch.zeros_like(pen_step))
 
     return total_lp, total_ent
 
@@ -96,19 +129,27 @@ class MAPPOActor(nn.Module):
         self.log_sigma_min = math.log(cfg.SIGMA_MIN)
         self.log_sigma_max = math.log(cfg.SIGMA_MAX)
 
-        # GAT-GRU actor backbone
+        # Permutation-equivariant GAT-GRU actor backbone
         self.node_proj = nn.Linear(node_dim, d_g)
         self.attn_vec = nn.Linear(2 * d_g, 1, bias=False)
-        self.spatial_fc = nn.Linear(J * d_g, hidden_dim)
+        self.spatial_fc = nn.Linear(d_g, hidden_dim)
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.feat_fc = nn.Linear(hidden_dim, hidden_dim)
+        self.ctx_proj = nn.Linear(hidden_dim, 16)
 
-        # Global-context heads + permutation-equivariant per-node GAT skip scoring
-        self.disc_head = nn.Linear(hidden_dim, J)
-        self.node_disc_head = nn.Sequential(nn.Linear(node_dim + d_g, 32), nn.ReLU(), nn.Linear(32, 1))
-        self.cont_mean_head = nn.Linear(hidden_dim, J)
-        self.node_power_head = nn.Sequential(nn.Linear(node_dim + d_g, 32), nn.ReLU(), nn.Linear(32, 1))
-        self.cont_std_head = nn.Linear(hidden_dim, J)
+        # Shared per-node hybrid heads (strictly permutation-equivariant across candidate cells)
+        self.node_disc_head = nn.Sequential(nn.Linear(node_dim + 3 + d_g + 16, 64), nn.ReLU(), nn.Linear(64, 1))
+        self.node_power_head = nn.Sequential(nn.Linear(node_dim + 3 + d_g + 16, 64), nn.ReLU(), nn.Linear(64, 1))
+        self.cont_std_head = nn.Linear(hidden_dim, 1)
+        # Learnable sequential interference repulsion weights using Omega and C priors
+        self.repulse_omega = nn.Parameter(torch.tensor(0.4))
+        self.repulse_cov = nn.Parameter(torch.tensor(-3.0))
+
+    def _pair_penalty(self, Omega: torch.Tensor, C: torch.Tensor) -> torch.Tensor:
+        w_om = F.softplus(self.repulse_omega)
+        w_c = F.softplus(self.repulse_cov)
+        eye = torch.eye(self.J, device=Omega.device, dtype=Omega.dtype).unsqueeze(0)
+        return (w_om * Omega + w_c * C) * (1.0 - eye)
 
     def _encode_gat(self, F_in: torch.Tensor, Omega: torch.Tensor, C: torch.Tensor, real_mask: torch.Tensor):
         B, J, _ = F_in.shape
@@ -124,24 +165,30 @@ class MAPPOActor(nn.Module):
         return o_hat
 
     def forward_step(self, F_in, Omega, C, real_mask, h_in):
+        B, J, _ = F_in.shape
         o_hat = self._encode_gat(F_in, Omega, C, real_mask)  # (B, J, d_g)
-        sp = F.relu(self.spatial_fc(o_hat.reshape(o_hat.shape[0], -1)))  # (B, 128)
+        pool_ctx = (o_hat * real_mask.unsqueeze(-1)).sum(dim=1) / real_mask.sum(dim=1, keepdim=True).clamp(min=1.0)
+        sp = F.relu(self.spatial_fc(pool_ctx))  # (B, 128)
         gru_out, h_next = self.gru(sp.unsqueeze(1), h_in)
         feat = F.relu(self.feat_fc(gru_out.squeeze(1)))  # (B, 128)
+        ctx_b = self.ctx_proj(feat).unsqueeze(1).expand(B, J, -1)
 
-        node_cat = torch.cat([F_in, o_hat], dim=-1)  # (B, J, 5 + d_g)
-        disc_logits = 0.25 * self.disc_head(feat) + self.node_disc_head(node_cat).squeeze(-1)
-        mu = 2.0 * torch.tanh(0.25 * self.cont_mean_head(feat) + self.node_power_head(node_cat).squeeze(-1))
+        log_qdh = torch.log1p(20.0 * F_in[..., :3].clamp(min=0.0))
+        node_cat = torch.cat([F_in, log_qdh, o_hat, ctx_b], dim=-1)  # (B, J, 5 + 3 + d_g + 16)
+        disc_logits = self.node_disc_head(node_cat).squeeze(-1)
+        mu = 4.0 * torch.tanh(self.node_power_head(node_cat).squeeze(-1))
         log_std = self.log_sigma_min + 0.5 * (self.log_sigma_max - self.log_sigma_min) * (
-            torch.tanh(self.cont_std_head(feat)) + 1.0
+            torch.tanh(self.cont_std_head(feat) - 1.2) + 1.0
         )
-        return disc_logits, mu, log_std.exp(), h_next
+        return disc_logits, mu, log_std.exp().expand(B, J), h_next
 
     @torch.no_grad()
     def act(self, F_in, Omega, C, real_mask, action_mask, h_in, deterministic: bool = False):
         disc_logits, mu, std, h_next = self.forward_step(F_in, Omega, C, real_mask, h_in)
+        eff_mask = active_backlog_mask(F_in, action_mask)
+        pen = self._pair_penalty(Omega, C)
         j_seq, b_mask, lp_d, _ = sample_without_replacement_batch(
-            disc_logits, action_mask, cfg.K_MAX, deterministic=deterministic
+            disc_logits, eff_mask, cfg.K_MAX, deterministic=deterministic, pair_penalty=pen
         )
         if deterministic:
             y = mu
@@ -158,7 +205,9 @@ class MAPPOActor(nn.Module):
 
     def evaluate_actions(self, F_in, Omega, C, real_mask, action_mask, h_in, j_seq, y, b_mask):
         disc_logits, mu, std, _ = self.forward_step(F_in, Omega, C, real_mask, h_in)
-        lp_d, ent_d = evaluate_without_replacement_batch(disc_logits, action_mask, j_seq)
+        eff_mask = active_backlog_mask(F_in, action_mask)
+        pen = self._pair_penalty(Omega, C)
+        lp_d, ent_d = evaluate_without_replacement_batch(disc_logits, eff_mask, j_seq, pair_penalty=pen)
         dist = torch.distributions.Normal(mu, std)
         lp_c = (dist.log_prob(y) * b_mask).sum(dim=-1)
         ent_c = (dist.entropy() * b_mask).sum(dim=-1)
@@ -197,7 +246,9 @@ class PPOBHModel(nn.Module):
         self.disc_head = nn.Linear(256, N * J)
         self.node_scorer = nn.Sequential(nn.Linear(cfg.NODE_FEAT_DIM, 32), nn.ReLU(), nn.Linear(32, 1))
         self.cont_mean = nn.Linear(256, N * J)
-        self.cont_logstd = nn.Parameter(torch.full((N, J), -0.8))
+        nn.init.zeros_(self.cont_mean.weight)
+        nn.init.zeros_(self.cont_mean.bias)
+        self.cont_logstd = nn.Parameter(torch.full((N, J), -1.2))
         self.critic = nn.Sequential(
             nn.Linear(state_dim, 256),
             nn.ReLU(),
@@ -210,7 +261,7 @@ class PPOBHModel(nn.Module):
         # s: (B, 5M), F_all: (B, N, J, 5)
         h = self.actor_body(s)
         B = s.shape[0]
-        logits = 0.2 * self.disc_head(h).view(B, self.N, self.J) + self.node_scorer(F_all).squeeze(-1)
+        logits = 0.04 * self.disc_head(h).view(B, self.N, self.J) + self.node_scorer(F_all).squeeze(-1)
         mu = 1.5 * torch.tanh(self.cont_mean(h)).view(B, self.N, self.J)
         std = self.cont_logstd.clamp(-2.3, 0.0).exp().unsqueeze(0).expand(B, -1, -1)
         val = self.critic(s).squeeze(-1)
@@ -220,8 +271,9 @@ class PPOBHModel(nn.Module):
     def act(self, s: torch.Tensor, F_all: torch.Tensor, action_mask: torch.Tensor, deterministic: bool = False):
         logits, mu, std, val = self.forward(s, F_all)
         logits_n, mu_n, std_n = logits.squeeze(0), mu.squeeze(0), std.squeeze(0)
+        eff_mask = active_backlog_mask(F_all.squeeze(0), action_mask)
         j_seq, b_mask, lp_d, _ = sample_without_replacement_batch(
-            logits_n, action_mask, cfg.K_MAX, deterministic=deterministic
+            logits_n, eff_mask, cfg.K_MAX, deterministic=deterministic
         )
         if deterministic:
             y = mu_n
@@ -237,19 +289,21 @@ class PPOBHModel(nn.Module):
 
 
 class QMIXAgent(nn.Module):
-    """Per-satellite Q-network for QMIX-BH (equal power allocation)."""
+    """Per-satellite Q-network for QMIX-BH (equal power allocation, permutation-equivariant)."""
 
     def __init__(self, J: int = cfg.J, node_dim: int = cfg.NODE_FEAT_DIM, hidden_dim: int = 128):
         super().__init__()
-        self.node_q = nn.Sequential(nn.Linear(node_dim, 32), nn.ReLU(), nn.Linear(32, 1))
-        self.fc1 = nn.Linear(J * node_dim, hidden_dim)
+        self.fc1 = nn.Linear(node_dim, hidden_dim)
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
-        self.q_head = nn.Linear(hidden_dim, J)
+        self.ctx_proj = nn.Linear(hidden_dim, 16)
+        self.node_q = nn.Sequential(nn.Linear(node_dim + 16, 48), nn.ReLU(), nn.Linear(48, 1))
 
     def forward(self, F_in: torch.Tensor, h_in: torch.Tensor):
-        x = F.relu(self.fc1(F_in.reshape(F_in.shape[0], -1)))
+        B, J, _ = F_in.shape
+        x = F.relu(self.fc1(F_in.mean(dim=1)))
         out, h_next = self.gru(x.unsqueeze(1), h_in)
-        q = 0.25 * self.q_head(out.squeeze(1)) + self.node_q(F_in).squeeze(-1)
+        ctx = self.ctx_proj(out.squeeze(1)).unsqueeze(1).expand(B, J, -1)
+        q = self.node_q(torch.cat([F_in, ctx], dim=-1)).squeeze(-1)
         return q, h_next
 
 
@@ -275,19 +329,21 @@ class QMIXMixer(nn.Module):
 
 
 class MADDPGActor(nn.Module):
-    """Per-satellite actor for MADDPG-BH (equal power allocation)."""
+    """Per-satellite actor for MADDPG-BH (equal power allocation, permutation-equivariant)."""
 
     def __init__(self, J: int = cfg.J, node_dim: int = cfg.NODE_FEAT_DIM, hidden_dim: int = 128):
         super().__init__()
-        self.node_net = nn.Sequential(nn.Linear(node_dim, 32), nn.ReLU(), nn.Linear(32, 1))
         self.ctx_net = nn.Sequential(
-            nn.Linear(J * node_dim, hidden_dim),
+            nn.Linear(node_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, J),
+            nn.Linear(hidden_dim, 16),
         )
+        self.node_net = nn.Sequential(nn.Linear(node_dim + 16, 48), nn.ReLU(), nn.Linear(48, 1))
 
     def forward(self, F_in: torch.Tensor):
-        return 0.25 * self.ctx_net(F_in.reshape(F_in.shape[0], -1)) + self.node_net(F_in).squeeze(-1)
+        B, J, _ = F_in.shape
+        ctx = self.ctx_net(F_in.mean(dim=1)).unsqueeze(1).expand(B, J, -1)
+        return self.node_net(torch.cat([F_in, ctx], dim=-1)).squeeze(-1)
 
 
 class MADDPGCritic(nn.Module):

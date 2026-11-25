@@ -40,10 +40,11 @@ PF_WINDOW = 50              # PF historical throughput window (slots)
 # Geometry calibration:
 # 3 dB beamwidth 3 deg -> 2*pi*r_ap/lambda * sin(1.5 deg) = 1.61633 (first -3 dB point of |2 J1(u)/u|^2)
 KA_APERTURE = 1.61633 / math.sin(math.radians(THETA_3DB_DEG / 2.0))
-CELL_SPACING_M = 54e3       # 54 km inter-cell center spacing
-CELL_RADIUS_M = 9.5e3       # 9.5 km user radius inside 3 dB beam footprint
-D_TH_M = 108e3              # Distance prior threshold d_th (2 cell hops)
-ETA_M = 35e3                # Distance prior smoothing factor eta
+CELL_SPACING_M = 25e3       # 25 km contiguous 3 dB beam footprint spacing within each 3x3 cluster
+SAT_SPACING_M = 165e3       # 165 km satellite cluster center spacing
+CELL_RADIUS_M = 7.5e3       # 7.5 km user radius inside 3 dB beam footprint
+D_TH_M = 30e3               # Distance prior threshold d_th (~1.2 cell hops)
+ETA_M = 5e3                 # Distance prior smoothing factor eta
 
 # 2. ISA association parameters
 T_0 = 100.0
