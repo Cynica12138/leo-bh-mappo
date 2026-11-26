@@ -270,6 +270,7 @@ class DRLHandoverAgent(BaseHandoverPolicy):
         use_cvar: bool = True,
         traffic_aware: bool = True,
         twin: bool = False,
+        hysteretic_beta: float | None = None,
         device: str = "cpu",
     ):
         self.cfg = cfg
@@ -279,6 +280,7 @@ class DRLHandoverAgent(BaseHandoverPolicy):
         self.use_cvar = use_cvar and distributional
         self.traffic_aware = traffic_aware
         self.twin = twin
+        self.hysteretic_beta = hysteretic_beta
         self.device = torch.device(device)
         self.bypass_trigger_gate = False
 
@@ -434,6 +436,16 @@ class DRLHandoverAgent(BaseHandoverPolicy):
             loss = quantile_huber_loss(q1_a, target_q, kappa=self.cfg.huber_kappa)
             if q2_a is not None:
                 loss = loss + quantile_huber_loss(q2_a, target_q, kappa=self.cfg.huber_kappa)
+        elif self.hysteretic_beta is not None:
+            def _hyst_huber(pred: torch.Tensor, tgt: torch.Tensor) -> torch.Tensor:
+                td = tgt - pred
+                elem = F.smooth_l1_loss(pred, tgt, reduction="none")
+                w = torch.where(td.detach() >= 0.0, 1.0, float(self.hysteretic_beta))
+                return (w * elem).mean()
+
+            loss = _hyst_huber(q1_a, target_q)
+            if q2_a is not None:
+                loss = loss + _hyst_huber(q2_a, target_q)
         else:
             loss = F.smooth_l1_loss(q1_a, target_q)
             if q2_a is not None:
@@ -460,6 +472,7 @@ class DRLHandoverAgent(BaseHandoverPolicy):
             "use_cvar": self.use_cvar,
             "traffic_aware": self.traffic_aware,
             "twin": self.twin,
+            "hysteretic_beta": self.hysteretic_beta,
             "cvar_blend": self.cvar_blend,
             "net_state_dict": self.net.state_dict(),
         }
@@ -471,6 +484,7 @@ class DRLHandoverAgent(BaseHandoverPolicy):
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.net.load_state_dict(ckpt["net_state_dict"])
         self.target_net.load_state_dict(ckpt["net_state_dict"])
+        self.hysteretic_beta = ckpt.get("hysteretic_beta", self.hysteretic_beta)
         self.cvar_blend = float(ckpt.get("cvar_blend", 1.0 if self.use_cvar else 0.0))
         self.net.eval()
         return ckpt

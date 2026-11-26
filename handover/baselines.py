@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Traditional handover baselines: Max-RVT, ISA-HO (Chapter 3 periodic ISA), and Swap-HO (Sun et al. TCOM 2025)."""
+"""Traditional, risk-aware, graph-theoretic, and optimization handover baselines:
+  - Max-RVT : Longest Remaining Visibility Time geometric baseline
+  - ISA-HO  : Chapter 3 periodic ISA load-balancing re-association
+  - Swap-HO : Beam-load-aware proactive Shift & Swap (Zhu, Sun & Peng, IEEE TCOM 2025)
+  - RA-HO   : Link-layer VaR Risk-Aware Handover (adapted from Almekhlafi & Kurt, arXiv 2026)
+  - MCMF-HO : Triggered-subset Min-Cost Max-Flow exact matching (Wiriya et al. GLOBECOM 2025; Yang et al. IoTJ 2026)
+  - RH-STG  : Rolling-Horizon Space-Time Graph shortest path (Wu et al. CL 2016; Liu et al. 2024)
+"""
 
 from abc import ABC, abstractmethod
+import math
+import networkx as nx
 import numpy as np
 
 from handover.admission import solve_isa_feasible
@@ -297,5 +306,507 @@ class SwapHOPolicy(BaseHandoverPolicy):
                 rho[dst] = r2_new
                 swapped.add(m)
                 swapped.add(m2)
+
+        return prop, fallbacks
+
+
+class RAHOPolicy(BaseHandoverPolicy):
+    """Link-layer Risk-Aware Handover (adapted from Almekhlafi & Kurt, arXiv 2026).
+
+    Computes the elevation-dependent AR(1) predictive (1 - epsilon) Value-at-Risk (VaR)
+    conservative link rate R_hat^VaR_{n,m}(t) for each visible satellite using the known
+    3GPP TR 38.811 shadow fading standard deviation sigma_sh(theta), filters risk-safe
+    candidates satisfying R_hat^VaR >= R_m^min, and ranks them by link-risk utility and RVT.
+    """
+
+    name = "RA-HO"
+    bypass_trigger_gate = False
+
+    def __init__(
+        self,
+        epsilon: float = 0.05,
+        risk_horizon_s: int = 5,
+        proactive_gain_margin: float = 0.15,
+        min_target_rvt_s: float = 25.0,
+    ):
+        self.epsilon = float(epsilon)
+        # Normal upper quantile z_{1-eps} (1.64485 for eps=0.05, 1.28155 for eps=0.10)
+        if abs(self.epsilon - 0.05) < 1e-9:
+            self.z_eps = 1.6448536
+        elif abs(self.epsilon - 0.10) < 1e-9:
+            self.z_eps = 1.2815516
+        elif abs(self.epsilon - 0.01) < 1e-9:
+            self.z_eps = 2.3263479
+        else:
+            from scipy.stats import norm
+            self.z_eps = float(norm.ppf(1.0 - self.epsilon))
+        self.risk_horizon_s = max(1, int(risk_horizon_s))
+        self.proactive_gain_margin = float(proactive_gain_margin)
+        self.min_target_rvt_s = float(min_target_rvt_s)
+
+    def select_actions(
+        self, out: EnvStepOutput, env: DynamicLEOHandoverEnv
+    ) -> tuple[np.ndarray, list[list[int]] | None]:
+        cfg = env.cfg
+        snap = out.snap
+        trig = out.trigger
+        n_act, m_cnt = snap.V_geo.shape
+        j_cap = cfg.J
+
+        prop = np.full(m_cnt, -1, dtype=np.int32)
+        fallbacks: list[list[int]] = [[] for _ in range(m_cnt)]
+
+        trig_cells = np.flatnonzero(trig.i_trig > 0)
+        if len(trig_cells) == 0 or n_act == 0:
+            return prop, fallbacks
+
+        # Compute (1 - epsilon) conservative link rate R_hat^VaR (N_act, M) without peeking at future noise
+        rho_h = cfg.shadow_rho ** self.risk_horizon_s
+        sig_db = env.channel.shadowing.sigma_db(snap.elev_rad)
+        pred_std_db = math.sqrt(max(1.0 - rho_h * rho_h, 0.0)) * sig_db
+        shadow_var_db = rho_h * out.links["shadow_db"] + self.z_eps * pred_std_db
+
+        dist = np.maximum(snap.slant_dist_m.astype(np.float64), 1.0)
+        fspl = (4.0 * math.pi * dist / cfg.LAMBDA) ** 2
+        g_var = (cfg.G_MAX_T_LIN * cfg.G_R_LIN) / (fspl * (10.0 ** (shadow_var_db / 10.0)))
+        p_nom = cfg.P_TOT_W / cfg.K_MAX
+        sig_var = p_nom * g_var
+        denom_var = cfg.noise_full_bw_w + np.maximum(
+            env.channel.ema_cell_interf_w[None, :], 0.5 * cfg.nominal_interf_ratio * sig_var
+        )
+        rate_var_bps = cfg.B_TOT * np.log2(1.0 + sig_var / np.maximum(denom_var, 1e-30))
+
+        tot_bps, _, _ = env.traffic_model.get_offered_rates_bps(out.t)
+        sat_id_to_local = {int(sid): i for i, sid in enumerate(snap.active_sat_ids)}
+        cur_local = np.array(
+            [sat_id_to_local.get(int(sid), -1) if sid >= 0 else -1 for sid in out.cell_sat_id],
+            dtype=np.int32,
+        )
+        counts = out.Z.sum(axis=1).astype(np.int32).copy()
+
+        # Process mandatory cells first, then proactive cells by RT urgency
+        order_cells = trig_cells[np.lexsort((-env.cell_rt_urg[trig_cells], -trig.i_force[trig_cells]))]
+        recent_mask = (out.t - env._last_ho_time) <= cfg.ping_pong_window_s
+
+        for raw_m in order_cells:
+            m = int(raw_m)
+            old_n = int(cur_local[m])
+            vis = np.flatnonzero(snap.V_geo[:, m] == 1)
+            if len(vis) == 0:
+                continue
+
+            req_m = float(tot_bps[m])
+            rvt_v = snap.rvt_s[vis, m]
+            rate_v = rate_var_bps[vis, m]
+            safe_mask = rate_v >= req_m
+            pp_pen = np.zeros(len(vis), dtype=np.float64)
+            if recent_mask[m]:
+                pp_pen = np.where(snap.active_sat_ids[vis] == env._last_ho_from_sat[m], 0.45, 0.0)
+
+            # Pure link-risk utility: VaR safety filter first, then RVT + conservative rate + slot feasibility
+            slot_pen = np.where(counts[vis] >= j_cap, 3.0, 0.45 * ((counts[vis] / float(j_cap)) ** 2))
+            score = (
+                0.50 * safe_mask.astype(np.float64)
+                + 0.60 * np.minimum(rvt_v / 120.0, 1.0)
+                + 0.35 * np.clip(rate_v / 250e6, 0.0, 1.5)
+                - slot_pen
+                - pp_pen
+            )
+            ranked = vis[np.argsort(-score)]
+
+            if trig.i_force[m] == 1:
+                healthy_free = [
+                    int(n) for n in ranked
+                    if int(n) != old_n and snap.rvt_s[n, m] > cfg.T_cov_s + 5.0 and counts[n] < j_cap
+                ]
+                healthy_any = [int(n) for n in ranked if int(n) != old_n and snap.rvt_s[n, m] > cfg.T_cov_s + 5.0]
+                if healthy_free:
+                    best = healthy_free[0]
+                    fb_order = healthy_free + [int(n) for n in ranked if int(n) not in set(healthy_free)]
+                elif healthy_any:
+                    best = healthy_any[0]
+                    fb_order = healthy_any + [int(n) for n in ranked if int(n) not in set(healthy_any)]
+                else:
+                    alt = [int(n) for n in ranked if int(n) != old_n]
+                    best = alt[0] if alt else int(ranked[0])
+                    fb_order = alt + ([old_n] if old_n >= 0 and old_n in vis else [])
+                prop[m] = best
+                fallbacks[m] = fb_order
+                if old_n >= 0 and counts[old_n] > 0:
+                    counts[old_n] -= 1
+                counts[best] += 1
+            else:
+                fallbacks[m] = ranked.tolist()
+                # Proactive trigger: if current link fails VaR threshold or serving sat is congested/full,
+                # move to best risk-safe long-RVT satellite with headroom; otherwise require VaR rate gain margin.
+                cur_ok = (
+                    old_n >= 0
+                    and snap.V_geo[old_n, m] == 1
+                    and snap.rvt_s[old_n, m] >= self.min_target_rvt_s
+                )
+                cur_rate_var = float(rate_var_bps[old_n, m]) if cur_ok else 0.0
+                cur_risk_violated = (not cur_ok) or (cur_rate_var < req_m)
+                cur_slot_full = (old_n >= 0) and (counts[old_n] >= j_cap)
+                best_cand = -1
+                for n in ranked:
+                    n_i = int(n)
+                    if n_i == old_n:
+                        continue
+                    if snap.rvt_s[n_i, m] < self.min_target_rvt_s or counts[n_i] >= j_cap - 1:
+                        continue
+                    if cur_risk_violated or cur_slot_full:
+                        if rate_var_bps[n_i, m] >= req_m or rate_var_bps[n_i, m] > cur_rate_var:
+                            best_cand = n_i
+                            break
+                    elif rate_var_bps[n_i, m] >= cur_rate_var * (1.0 + self.proactive_gain_margin):
+                        best_cand = n_i
+                        break
+                if best_cand >= 0:
+                    prop[m] = best_cand
+                    if old_n >= 0 and counts[old_n] > 0:
+                        counts[old_n] -= 1
+                    counts[best_cand] += 1
+
+        return prop, fallbacks
+
+
+class MCMFHOPolicy(BaseHandoverPolicy):
+    """Triggered-subset Minimum-Cost Maximum-Flow exact matching baseline.
+
+    Adapted from Wiriya et al. (IEEE GLOBECOM 2025) & Yang et al. (IEEE IoTJ 2026):
+      - Fixes untriggered cells' occupied slots k_n^fix and beam loads rho_n^fix;
+      - Jointly assigns all triggered cells M_trig(t) via exact integer min-cost max-flow;
+      - Approximates convex quadratic load balancing using (J - k_n^fix) parallel unit-capacity
+        arcs from each active satellite n -> T with strictly increasing marginal cost.
+    """
+
+    name = "MCMF-HO"
+    bypass_trigger_gate = False
+
+    def __init__(
+        self,
+        lambda_d: float = 1.50,
+        lambda_r: float = 1.20,
+        lambda_h: float = 0.65,
+        lambda_pp: float = 1.80,
+        lambda_bal: float = 0.22,
+        lambda_rho: float = 0.75,
+        cost_scale: int = 1000,
+        m_big: float = 1000.0,
+    ):
+        self.lambda_d = float(lambda_d)
+        self.lambda_r = float(lambda_r)
+        self.lambda_h = float(lambda_h)
+        self.lambda_pp = float(lambda_pp)
+        self.lambda_bal = float(lambda_bal)
+        self.lambda_rho = float(lambda_rho)
+        self.cost_scale = int(cost_scale)
+        self.m_big = float(m_big)
+
+    def select_actions(
+        self, out: EnvStepOutput, env: DynamicLEOHandoverEnv
+    ) -> tuple[np.ndarray, list[list[int]] | None]:
+        cfg = env.cfg
+        snap = out.snap
+        trig = out.trigger
+        n_act, m_cnt = snap.V_geo.shape
+        j_cap = cfg.J
+
+        prop = np.full(m_cnt, -1, dtype=np.int32)
+        fallbacks: list[list[int]] = [[] for _ in range(m_cnt)]
+
+        trig_cells = np.flatnonzero(trig.i_trig > 0)
+        if len(trig_cells) == 0 or n_act == 0:
+            return prop, fallbacks
+
+        sat_id_to_local = {int(sid): i for i, sid in enumerate(snap.active_sat_ids)}
+        cur_local = np.array(
+            [sat_id_to_local.get(int(sid), -1) if sid >= 0 else -1 for sid in out.cell_sat_id],
+            dtype=np.int32,
+        )
+
+        # Fix untriggered cells' occupied slot counts k_n^fix and beam loads rho_n^fix
+        untrig_mask = trig.i_trig == 0
+        Z_fix = out.Z[:, untrig_mask]
+        k_fix = Z_fix.sum(axis=1).astype(np.int32)
+        rho_fix = (Z_fix * out.d_nm[:, untrig_mask]).sum(axis=1) / float(cfg.K_MAX)
+
+        G = nx.MultiDiGraph()
+        n_trig = len(trig_cells)
+        G.add_node("S", demand=-n_trig)
+        G.add_node("T", demand=n_trig)
+
+        scale = self.cost_scale
+        # Active satellite n -> sink T: (J - k_n^fix) parallel unit-capacity convex-cost arcs
+        for n in range(n_act):
+            rem = max(0, j_cap - int(k_fix[n]))
+            base_rho_cost = self.lambda_rho * float(rho_fix[n])
+            for l in range(1, rem + 1):
+                arc_cost = self.lambda_bal * float(int(k_fix[n]) + l) + base_rho_cost
+                G.add_edge(("sat", n), "T", key=l, capacity=1, weight=int(round(scale * arc_cost)))
+
+        recent_mask = (out.t - env._last_ho_time) <= cfg.ping_pong_window_s
+        overflow_w = int(round(scale * self.m_big))
+        has_healthy_map: dict[int, bool] = {}
+
+        for raw_m in trig_cells:
+            m = int(raw_m)
+            c_node = ("cell", m)
+            G.add_edge("S", c_node, key=0, capacity=1, weight=0)
+            G.add_edge(c_node, "T", key=0, capacity=1, weight=overflow_w)
+
+            vis = np.flatnonzero(snap.V_geo[:, m] == 1)
+            if len(vis) == 0:
+                has_healthy_map[m] = False
+                continue
+
+            old_n = int(cur_local[m])
+            has_healthy = any((int(n) != old_n) and (snap.rvt_s[n, m] > cfg.T_cov_s) for n in vis)
+            has_healthy_map[m] = has_healthy
+            ho_c = float(out.cell_ho_cost[m])
+
+            cand_rank: list[tuple[float, int]] = []
+            for raw_n in vis:
+                n = int(raw_n)
+                is_switch = n != old_n
+                rvt_norm = min(float(snap.rvt_s[n, m]) / 120.0, 1.0)
+                c_mn = (
+                    self.lambda_d * float(out.d_nm[n, m])
+                    - self.lambda_r * rvt_norm
+                    + (self.lambda_h * ho_c if is_switch else 0.0)
+                )
+                if is_switch and recent_mask[m] and int(snap.active_sat_ids[n]) == int(env._last_ho_from_sat[m]):
+                    c_mn += self.lambda_pp
+                if not is_switch:
+                    if (not trig.stay_allowed[m]) or (
+                        trig.i_force[m] == 1 and snap.rvt_s[n, m] <= cfg.T_cov_s and has_healthy
+                    ):
+                        c_mn += 80.0
+                elif snap.rvt_s[n, m] <= cfg.T_cov_s and has_healthy:
+                    c_mn += 25.0
+
+                G.add_edge(c_node, ("sat", n), key=0, capacity=1, weight=int(round(scale * c_mn)))
+                est_total = c_mn + self.lambda_bal * float(int(k_fix[n]) + 1) + self.lambda_rho * float(rho_fix[n])
+                cand_rank.append((est_total, n))
+
+            cand_rank.sort(key=lambda x: x[0])
+            fallbacks[m] = [n for _, n in cand_rank]
+
+        flow_dict = nx.min_cost_flow(G)
+
+        for raw_m in trig_cells:
+            m = int(raw_m)
+            c_node = ("cell", m)
+            chosen_n = -1
+            for nbr, key_flows in flow_dict.get(c_node, {}).items():
+                if nbr == "T":
+                    continue
+                if sum(key_flows.values()) > 0:
+                    chosen_n = int(nbr[1])
+                    break
+
+            old_n = int(cur_local[m])
+            if chosen_n < 0:
+                prop[m] = -1
+            elif (
+                chosen_n == old_n
+                and bool(trig.stay_allowed[m])
+                and not (trig.i_force[m] == 1 and snap.rvt_s[chosen_n, m] <= cfg.T_cov_s and has_healthy_map[m])
+            ):
+                prop[m] = -1
+            else:
+                prop[m] = chosen_n
+
+        return prop, fallbacks
+
+
+class RHSTGPolicy(BaseHandoverPolicy):
+    """Rolling-Horizon Space-Time Graph (RH-STG) deterministic shortest-path handover baseline.
+
+    Adapted from Wu et al. (IEEE CL 2016) & Liu et al. (2024):
+      - Looks ahead W = 60 s sampled every dt = 2 s (L = 30 DAG layers) using deterministic
+        Walker Delta ephemeris (no future AR(1) shadowing noise or future traffic drift peeking);
+      - Solves exact shortest path via O(L * K) backward dynamic programming per triggered cell;
+      - Executes only the step-0 satellite decision and submits to unified admission control.
+    """
+
+    name = "RH-STG"
+    bypass_trigger_gate = False
+
+    def __init__(
+        self,
+        horizon_s: int = 60,
+        dt_s: int = 2,
+        lambda_d: float = 1.40,
+        lambda_rho: float = 1.00,
+        lambda_slot: float = 0.80,
+        lambda_h: float = 1.10,
+        lambda_pp: float = 2.00,
+    ):
+        self.horizon_s = max(2, int(horizon_s))
+        self.dt_s = max(1, int(dt_s))
+        self.num_layers = max(2, self.horizon_s // self.dt_s)
+        self.lambda_d = float(lambda_d)
+        self.lambda_rho = float(lambda_rho)
+        self.lambda_slot = float(lambda_slot)
+        self.lambda_h = float(lambda_h)
+        self.lambda_pp = float(lambda_pp)
+
+    def select_actions(
+        self, out: EnvStepOutput, env: DynamicLEOHandoverEnv
+    ) -> tuple[np.ndarray, list[list[int]] | None]:
+        cfg = env.cfg
+        snap = out.snap
+        trig = out.trigger
+        n_act, m_cnt = snap.V_geo.shape
+        j_cap = float(cfg.J)
+
+        prop = np.full(m_cnt, -1, dtype=np.int32)
+        fallbacks: list[list[int]] = [[] for _ in range(m_cnt)]
+
+        trig_cells = np.flatnonzero(trig.i_trig > 0)
+        if len(trig_cells) == 0 or n_act == 0:
+            return prop, fallbacks
+
+        geom = env.geom
+        assert geom._vgeo_all is not None and geom._dist_all is not None and geom._window_sat_ids is not None
+        max_t = geom._vgeo_all.shape[0] - 1
+        t_layers = np.array([min(out.t + l * self.dt_s, max_t) for l in range(self.num_layers)], dtype=np.int32)
+        L = len(t_layers)
+
+        win_ids = geom._window_sat_ids
+        n_win = len(win_ids)
+        sat_id_to_local = {int(sid): i for i, sid in enumerate(snap.active_sat_ids)}
+        win_to_local = np.array([sat_id_to_local.get(int(sid), -1) for sid in win_ids], dtype=np.int32)
+
+        cur_local = np.array(
+            [sat_id_to_local.get(int(sid), -1) if sid >= 0 else -1 for sid in out.cell_sat_id],
+            dtype=np.int32,
+        )
+
+        # Snapshot of current satellite loads & AR(1) shadow states mapped to window indices (no future peeking)
+        rho_mean = float(out.sat_rho.mean()) if n_act > 0 else 0.5
+        cur_rho_win = np.full(n_win, 0.75 * rho_mean, dtype=np.float64)
+        cur_cnt_win = np.zeros(n_win, dtype=np.float64)
+        cur_sh_win = np.zeros((n_win, m_cnt), dtype=np.float64)
+        active_win_mask = win_to_local >= 0
+        if np.any(active_win_mask):
+            aw_idx = np.flatnonzero(active_win_mask)
+            al_idx = win_to_local[aw_idx]
+            sat_counts = out.Z.sum(axis=1).astype(np.float64)
+            cur_rho_win[aw_idx] = out.sat_rho[al_idx]
+            cur_cnt_win[aw_idx] = sat_counts[al_idx] / j_cap
+            cur_sh_win[aw_idx] = out.links["shadow_db"][al_idx]
+
+        # Frozen step-t cell traffic demand snapshot (no future burst/drift peeking)
+        tot_bps, _, _ = env.traffic_model.get_offered_rates_bps(out.t)
+        eff_q_bits = np.minimum(env.cell_queue_bits, 2.0 * np.maximum(tot_bps, 2.0e6) * cfg.T_H)
+        req_bps = tot_bps + eff_q_bits / cfg.T_H
+
+        layer_dt_scale = float(self.dt_s) / 13.5
+        lags = np.arange(L, dtype=np.float64) * float(self.dt_s)
+        rho_decay = np.exp(-lags / 30.0)[:, None]                # (L, 1)
+        sh_decay = (cfg.shadow_rho ** lags)[:, None]             # (L, 1)
+        fspl_coeff = (4.0 * math.pi / cfg.LAMBDA) ** 2
+        gain_num = cfg.G_MAX_T_LIN * cfg.G_R_LIN
+        p_nom = cfg.P_TOT_W / cfg.K_MAX
+        recent_mask = (out.t - env._last_ho_time) <= cfg.ping_pong_window_s
+        INF = 1e9
+
+        for raw_m in trig_cells:
+            m = int(raw_m)
+            v_layers = geom._vgeo_all[t_layers, :, m]  # (L, N_win) bool
+            cand_w = np.flatnonzero(v_layers.any(axis=0))
+            if len(cand_w) == 0:
+                continue
+
+            v_sub = v_layers[:, cand_w]                                     # (L, K)
+            d_sub = geom._dist_all[t_layers[:, None], cand_w[None, :], m].astype(np.float64)
+
+            # Expected AR(1) shadow attenuation decay (zero future noise)
+            sh_exp = sh_decay * cur_sh_win[cand_w, m][None, :]              # (L, K)
+            g_det = gain_num / (fspl_coeff * (np.maximum(d_sub, 1.0) ** 2) * (10.0 ** (sh_exp / 10.0)))
+            sig = p_nom * g_det
+            denom = cfg.noise_full_bw_w + np.maximum(
+                env.channel.ema_cell_interf_w[m], 0.5 * cfg.nominal_interf_ratio * sig
+            )
+            rate_det = cfg.B_TOT * np.log2(1.0 + sig / np.maximum(denom, 1e-30))
+            d_hat = req_bps[m] / (rate_det + 1e3)
+
+            # Overwrite layer 0 with exact observed d_nm for currently active satellites
+            loc_w = win_to_local[cand_w]
+            act_k = loc_w >= 0
+            if np.any(act_k):
+                d_hat[0, act_k] = out.d_nm[loc_w[act_k], m]
+
+            # Predicted satellite load decays smoothly toward network mean over the 60 s horizon
+            rho_hat = np.where(
+                act_k[None, :],
+                rho_decay * cur_rho_win[cand_w][None, :] + (1.0 - rho_decay) * rho_mean,
+                0.75 * rho_mean,
+            )
+            node_cost = layer_dt_scale * (self.lambda_d * d_hat + self.lambda_rho * rho_hat)
+            node_cost[0] += self.lambda_slot * (cur_cnt_win[cand_w] ** 2)
+
+            # Exact O(L * K) backward dynamic programming on the space-time DAG
+            ho_pen = self.lambda_h * float(out.cell_ho_cost[m])
+            V = np.where(v_sub[-1], node_cost[-1], INF)
+            for l in range(L - 2, -1, -1):
+                v_min = float(V.min())
+                if v_min >= INF * 0.5:
+                    cont = np.zeros_like(V)
+                else:
+                    cont = np.minimum(V, v_min + ho_pen)
+                V = np.where(v_sub[l], node_cost[l] + cont, INF)
+
+            # Extract step-0 feasible active satellites and apply initial transition / expiring penalties
+            old_n = int(cur_local[m])
+            vis_l0_k = np.flatnonzero(v_sub[0] & act_k)
+            if len(vis_l0_k) == 0:
+                vis_fb = np.flatnonzero(snap.V_geo[:, m] == 1)
+                if len(vis_fb) > 0:
+                    order_fb = vis_fb[np.argsort(-snap.rvt_s[vis_fb, m])]
+                    prop[m] = int(order_fb[0])
+                    fallbacks[m] = order_fb.tolist()
+                continue
+
+            l0_locals = loc_w[vis_l0_k]
+            has_healthy = any((int(n) != old_n) and (snap.rvt_s[n, m] > cfg.T_cov_s) for n in l0_locals)
+
+            scored: list[tuple[float, int]] = []
+            for k_idx, loc_n in zip(vis_l0_k, l0_locals):
+                n = int(loc_n)
+                total_c = float(V[k_idx])
+                is_switch = n != old_n
+                if is_switch:
+                    total_c += ho_pen
+                    if recent_mask[m] and int(snap.active_sat_ids[n]) == int(env._last_ho_from_sat[m]):
+                        total_c += self.lambda_pp
+                    if snap.rvt_s[n, m] <= cfg.T_cov_s and has_healthy:
+                        total_c += 25.0
+                else:
+                    if (not trig.stay_allowed[m]) or (
+                        trig.i_force[m] == 1 and snap.rvt_s[n, m] <= cfg.T_cov_s and has_healthy
+                    ):
+                        total_c += 80.0
+                scored.append((total_c, n))
+
+            scored.sort(key=lambda x: x[0])
+            best_n = scored[0][1]
+            fallbacks[m] = [n for _, n in scored]
+            # Append any remaining visible sats (edge case safety)
+            fb_set = set(fallbacks[m])
+            for n in np.flatnonzero(snap.V_geo[:, m] == 1):
+                if int(n) not in fb_set:
+                    fallbacks[m].append(int(n))
+
+            if (
+                best_n == old_n
+                and bool(trig.stay_allowed[m])
+                and not (trig.i_force[m] == 1 and snap.rvt_s[best_n, m] <= cfg.T_cov_s and has_healthy)
+            ):
+                prop[m] = -1
+            else:
+                prop[m] = best_n
 
         return prop, fallbacks

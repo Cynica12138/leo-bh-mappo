@@ -10,7 +10,15 @@ import torch
 
 from handover.config import HandoverConfig
 from handover.dynamic_env import DynamicLEOHandoverEnv
-from handover.baselines import MaxRVTPolicy, ISAHOPolicy, SwapHOPolicy
+from handover.baselines import (
+    MaxRVTPolicy,
+    ISAHOPolicy,
+    SwapHOPolicy,
+    RAHOPolicy,
+    MCMFHOPolicy,
+    RHSTGPolicy,
+)
+from handover.mappo_ho import MAPPOHOAgent
 from handover.train import ALGO_SPECS, build_agent
 
 
@@ -78,7 +86,7 @@ def main():
     parser.add_argument("--micro-slots", type=int, default=0, help="Override micro slots/sec in Mode B (0=full 500)")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1001, 1002, 1003, 1004, 1005])
     parser.add_argument("--ckpt-dir", type=str, default="handover/checkpoints")
-    parser.add_argument("--drl-algos", nargs="*", default=["cell_rl", "ma_hgdqn", "tra_hgdrl"])
+    parser.add_argument("--drl-algos", nargs="*", default=["mappo_ho", "hyst_madqn", "cell_rl", "ma_hgdqn", "tra_hgdrl"])
     parser.add_argument("--out-json", type=str, default="handover/results/eval_results.json")
     parser.add_argument("--threads", type=int, default=1)
     args = parser.parse_args()
@@ -99,17 +107,25 @@ def main():
         ("Max-RVT", MaxRVTPolicy(), False, True),
         ("ISA-HO", ISAHOPolicy(reassoc_period_s=15), False, True),
         ("Swap-HO", SwapHOPolicy(), False, True),
+        ("RA-HO", RAHOPolicy(), False, True),
+        ("MCMF-HO", MCMFHOPolicy(), False, True),
+        ("RH-STG", RHSTGPolicy(), False, True),
     ]
     for key in args.drl_algos:
         ckpt_path = os.path.join(args.ckpt_dir, f"{key}.pt")
         if not os.path.exists(ckpt_path):
             print(f"[Skip] checkpoint not found: {ckpt_path}")
             continue
-        ckpt_meta = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-        agent, spec = build_agent(key, cfg, twin=bool(ckpt_meta.get("twin", False)))
-        agent.load(ckpt_path)
-        agent.epsilon = 0.0
-        entries.append((spec["display"], agent, spec["force_only"], spec["traffic_aware"]))
+        if key == "mappo_ho":
+            agent = MAPPOHOAgent(cfg=cfg)
+            agent.load(ckpt_path)
+            entries.append(("MAPPO-HO", agent, False, True))
+        else:
+            ckpt_meta = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            agent, spec = build_agent(key, cfg, twin=bool(ckpt_meta.get("twin", True)))
+            agent.load(ckpt_path)
+            agent.epsilon = 0.0
+            entries.append((spec["display"], agent, spec["force_only"], spec["traffic_aware"]))
 
     print(
         f"\n=== Chapter 4 Evaluation | preset={args.preset} mode={args.service_mode} "

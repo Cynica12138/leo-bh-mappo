@@ -2,5 +2,13 @@
   "wo_traffic": {
     "best_val_ret": -36.79491731131566,
     "ckpt_path": "handover/checkpoints_paper/wo_traffic.pt"
+  },
+  "mappo_ho": {
+    "best_val_ret": -7.581699580064196,
+    "ckpt_path": "handover/checkpoints_paper/mappo_ho.pt"
+  },
+  "hyst_madqn": {
+    "best_val_ret": -4.047666049882537,
+    "ckpt_path": "handover/checkpoints_paper/hyst_madqn.pt"
   }
 }

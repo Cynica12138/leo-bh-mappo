@@ -21,6 +21,15 @@ ALGO_SPECS: dict[str, dict] = {
     "tra_hgdrl": dict(display="TRA-HGDRL", use_hgat=True, distributional=True, use_cvar=True, traffic_aware=True, force_only=False),
     "ma_hgdqn": dict(display="MA-HGDQN", use_hgat=True, distributional=False, use_cvar=False, traffic_aware=True, force_only=False),
     "cell_rl": dict(display="Cell-RL", use_hgat=False, distributional=False, use_cvar=False, traffic_aware=True, force_only=False),
+    "hyst_madqn": dict(
+        display="Hyst-MADQN",
+        use_hgat=False,
+        distributional=False,
+        use_cvar=False,
+        traffic_aware=True,
+        force_only=False,
+        hysteretic_beta=0.3,
+    ),
     "wo_traffic": dict(display="w/o Traffic", use_hgat=True, distributional=True, use_cvar=False, traffic_aware=False, force_only=False),
     "wo_hgat": dict(display="w/o HGAT", use_hgat=False, distributional=True, use_cvar=True, traffic_aware=True, force_only=False),
     "wo_distrl": dict(display="w/o DistRL", use_hgat=True, distributional=False, use_cvar=False, traffic_aware=True, force_only=False),
@@ -41,6 +50,7 @@ def build_agent(algo_key: str, cfg: HandoverConfig, twin: bool = False, device: 
         use_cvar=spec["use_cvar"],
         traffic_aware=spec["traffic_aware"],
         twin=twin,
+        hysteretic_beta=spec.get("hysteretic_beta", None),
         device=device,
     )
     return agent, spec
@@ -225,7 +235,12 @@ def train_algo(
 
 def main():
     parser = argparse.ArgumentParser(description="Train Chapter 4 TRA-HGDRL and DRL baselines/ablations")
-    parser.add_argument("--algos", nargs="+", default=["tra_hgdrl"], choices=list(ALGO_SPECS.keys()))
+    parser.add_argument(
+        "--algos",
+        nargs="+",
+        default=["tra_hgdrl"],
+        choices=list(ALGO_SPECS.keys()) + ["mappo_ho"],
+    )
     parser.add_argument("--preset", type=str, default="tight_45n")
     parser.add_argument("--episodes", type=int, default=40)
     parser.add_argument("--train-duration", type=int, default=240)
@@ -247,21 +262,42 @@ def main():
     )
     summaries = {}
     for i, algo in enumerate(args.algos):
-        summaries[algo] = train_algo(
-            algo_key=algo,
-            cfg=cfg,
-            episodes=args.episodes,
-            train_duration_s=args.train_duration,
-            val_duration_s=args.val_duration,
-            updates_per_ep=args.updates_per_ep,
-            save_dir=args.save_dir,
-            seed=args.seed + i,
-            twin=not args.no_twin,
-        )
+        if algo == "mappo_ho":
+            from handover.mappo_ho import train_mappo_ho
+
+            summaries[algo] = train_mappo_ho(
+                cfg=cfg,
+                episodes=args.episodes,
+                train_duration_s=args.train_duration,
+                val_duration_s=args.val_duration,
+                save_dir=args.save_dir,
+                seed=args.seed + i,
+            )
+        else:
+            summaries[algo] = train_algo(
+                algo_key=algo,
+                cfg=cfg,
+                episodes=args.episodes,
+                train_duration_s=args.train_duration,
+                val_duration_s=args.val_duration,
+                updates_per_ep=args.updates_per_ep,
+                save_dir=args.save_dir,
+                seed=args.seed + i,
+                twin=not args.no_twin,
+            )
 
     out_json = os.path.join(args.save_dir, "train_summary.json")
+    existing = {}
+    if os.path.exists(out_json):
+        try:
+            with open(out_json) as ef:
+                existing = json.load(ef)
+        except Exception:
+            existing = {}
+    for k, v in summaries.items():
+        existing[k] = {"best_val_ret": v["best_val_ret"], "ckpt_path": v["ckpt_path"]}
     with open(out_json, "w") as f:
-        json.dump({k: {"best_val_ret": v["best_val_ret"], "ckpt_path": v["ckpt_path"]} for k, v in summaries.items()}, f, indent=2)
+        json.dump(existing, f, indent=2)
 
 
 if __name__ == "__main__":
